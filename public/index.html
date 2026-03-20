@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdvaySocialSuite</title>
+  <meta name="description" content="Portfolio and tools hub for Advay — automation engineer and builder from Kenya.">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Tailwind Play CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'space': '#050813',
+            'space-2': '#0a0f23',
+            'space-3': '#0f172a',
+            'cyan': '#00e5ff',
+            'violet': '#8b5cf6',
+            'emerald': '#10b981',
+          },
+          fontFamily: {
+            'display': ['"Bebas Neue"', 'cursive'],
+            'heading': ['Syne', 'sans-serif'],
+            'body': ['"Plus Jakarta Sans"', 'sans-serif'],
+            'mono': ['"JetBrains Mono"', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="font-body bg-space text-slate-200 overflow-x-hidden">
+
+  <!-- Particle canvas background -->
+  <canvas id="particles" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+  <!-- Navigation -->
+  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16 md:h-18">
+
+        <!-- Logo -->
+        <a href="#/" class="flex items-center gap-2 group nav-logo">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan/20 to-violet/20 border border-cyan/30 flex items-center justify-center group-hover:border-cyan/60 transition-all duration-300">
+            <span class="font-display text-cyan text-sm leading-none">A</span>
+          </div>
+          <span class="font-heading font-700 text-white text-sm tracking-wider hidden sm:block">AdvaySocialSuite</span>
+        </a>
+
+        <!-- Desktop Nav -->
+        <ul class="hidden md:flex items-center gap-1">
+          <li><a href="#/" class="nav-link" data-page="home">Home</a></li>
+          <li><a href="#/about" class="nav-link" data-page="about">About</a></li>
+          <li><a href="#/repos" class="nav-link" data-page="repos">Repos</a></li>
+          <li><a href="#/tools" class="nav-link" data-page="tools">Tools</a></li>
+          <li><a href="#/collab" class="nav-link" data-page="collab">Collab</a></li>
+        </ul>
+
+        <!-- Right actions -->
+        <div class="flex items-center gap-3">
+          <a href="https://www.buymeacoffee.com/advay254" target="_blank" rel="noopener" class="bmc-btn hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300">
+            <span>☕</span><span>Buy me coffee</span>
+          </a>
+          <!-- Mobile menu button -->
+          <button id="menu-btn" class="md:hidden p-2 rounded-lg border border-white/10 hover:border-cyan/30 transition-colors">
+            <div class="menu-icon w-5 h-4 flex flex-col justify-between">
+              <span></span><span></span><span></span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Menu -->
+    <div id="mobile-menu" class="mobile-menu md:hidden hidden">
+      <div class="px-4 py-4 space-y-1 border-t border-white/5">
+        <a href="#/" class="mobile-nav-link" data-page="home">Home</a>
+        <a href="#/about" class="mobile-nav-link" data-page="about">About</a>
+        <a href="#/repos" class="mobile-nav-link" data-page="repos">GitHub Repos</a>
+        <a href="#/tools" class="mobile-nav-link" data-page="tools">Live Tools</a>
+        <a href="#/collab" class="mobile-nav-link" data-page="collab">Collaborate</a>
+        <a href="https://www.buymeacoffee.com/advay254" target="_blank" class="mobile-nav-link text-yellow-400">☕ Buy me coffee</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content area -->
+  <main id="app" class="relative z-10"></main>
+
+  <!-- Chat Widget -->
+  <div id="chat-widget-root"></div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Page scripts -->
+  <script src="/js/pages/home.js"></script>
+  <script src="/js/pages/about.js"></script>
+  <script src="/js/pages/repos.js"></script>
+  <script src="/js/pages/tools.js"></script>
+  <script src="/js/pages/collab.js"></script>
+  <script src="/js/chat-widget.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
