@@ -1,36 +1,32 @@
 /**
- * License enforcement middleware.
- * Runs before every route. Unlicensed deployments get a lock screen.
- * Deliberately vague naming throughout.
+ * License enforcement middleware — no cache, instant lock/unlock.
+ * Checks the license worker on every request (fast — CF global edge).
+ * Reports actual lock status back to the worker after each check.
+ * Owner bypass: set OWNER=1 on your own Render deployment.
  */
 
 const { getPool } = require('../db/init');
 const crypto = require('crypto');
 
-// ── In-memory cache ───────────────────────────────────────────────────────────
-let _cache = { s: null, t: 0 };       // s=status(bool), t=timestamp
-const CACHE_TTL  = 10 * 60 * 1000; // 10 minutes when licensed
-const POLL_TTL   = 15 * 1000;            // 15 sec when still pending (fast poll on lock screen)
+const _c = Buffer.from('aHR0cHM6Ly9zdWl0ZS1sYy5jaHVyY2hpbGxtd2VnaS53b3JrZXJzLmRldg==', 'base64').toString();
+const _p = Buffer.from('aHR0cHM6Ly9wYXlzdGFjay5zaG9wL3BheS9hZHZheXNvY2lhbHN1aXRl', 'base64').toString();
 
-// ── Generate raw key ─────────────────────────────────────────────────────────
+// ── Generate raw key ──────────────────────────────────────────────────────────
 function genRawKey() {
-  // Random 32 bytes + timestamp fragment → hex
   const a = crypto.randomBytes(24).toString('hex');
   const b = Date.now().toString(36);
   const c = crypto.randomBytes(8).toString('hex');
   return `${a}${b}${c}`.slice(0, 64);
 }
 
-// ── Fetch from CF worker ──────────────────────────────────────────────────────
+// ── Call license worker ───────────────────────────────────────────────────────
 async function callWorker(endpoint, body) {
-  const url = process.env.LC_URL;
-  if (!url) return null;
   try {
-    const res = await fetch(`${url}${endpoint}`, {
+    const res = await fetch(`${_c}${endpoint}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     return await res.json();
@@ -39,14 +35,17 @@ async function callWorker(endpoint, body) {
   }
 }
 
-// ── Get or create the raw key and payment ID ─────────────────────────────────
+// ── Fire-and-forget status report back to worker ──────────────────────────────
+function reportStatus(rk, locked) {
+  // Non-blocking — never delays the response
+  callWorker('/api/status', { k: rk, locked }).catch(() => {});
+}
+
+// ── Get or create keys in DB ──────────────────────────────────────────────────
 async function getOrInitKeys() {
   const db = getPool();
-
-  // Get raw key
   let { rows: rkRows } = await db.query("SELECT value FROM site_settings WHERE key='_rk'");
   let rk = rkRows[0]?.value;
-
   if (!rk) {
     rk = genRawKey();
     await db.query(
@@ -54,67 +53,63 @@ async function getOrInitKeys() {
       [rk]
     );
   }
-
-  // Get cached payment ID
   let { rows: pidRows } = await db.query("SELECT value FROM site_settings WHERE key='_pid'");
   let pid = pidRows[0]?.value;
-
-  return { rk, pid };
+  let { rows: purlRows } = await db.query("SELECT value FROM site_settings WHERE key='_purl'");
+  let payUrl = purlRows[0]?.value || _p;
+  return { rk, pid, payUrl };
 }
 
-// ── Save payment ID to DB ─────────────────────────────────────────────────────
-async function savePID(pid) {
+async function savePID(pid, payUrl) {
   const db = getPool();
   await db.query(
     "INSERT INTO site_settings (key,value) VALUES ('_pid',$1) ON CONFLICT (key) DO UPDATE SET value=$1",
     [pid]
   );
+  if (payUrl) {
+    await db.query(
+      "INSERT INTO site_settings (key,value) VALUES ('_purl',$1) ON CONFLICT (key) DO UPDATE SET value=$1",
+      [payUrl]
+    );
+  }
 }
 
-// ── Check license (with cache) ────────────────────────────────────────────────
+// ── Check license — no cache, checks worker every time ───────────────────────
 async function checkLicense() {
-  const now = Date.now();
-  const ttl = _cache.s === true ? CACHE_TTL : POLL_TTL;
+  const { rk, pid, payUrl } = await getOrInitKeys();
 
-  // Return cached value if still valid
-  if (_cache.s !== null && (now - _cache.t) < ttl) {
-    return _cache.s;
-  }
-
-  const { rk, pid } = await getOrInitKeys();
-
-  // Register if no PID yet (first boot)
   if (!pid) {
+    // First boot — register with worker
     const reg = await callWorker('/api/r', { k: rk });
     if (reg && reg.p) {
-      await savePID(reg.p);
-      _cache = { s: reg.s === 1, t: now };
-      return reg.s === 1;
+      await savePID(reg.p, reg.pay_url);
+      reportStatus(rk, reg.s !== 1);
+      return { licensed: reg.s === 1, pid: reg.p, payUrl: reg.pay_url || payUrl };
     }
     // Worker unreachable on first boot → fail open
-    _cache = { s: true, t: now };
-    return true;
+    return { licensed: true, pid: null, payUrl };
   }
 
-  // Check status
   const check = await callWorker('/api/c', { k: rk });
   if (check === null) {
-    // Worker unreachable → fail open, use last known or true
-    _cache = { s: _cache.s ?? true, t: now };
-    return _cache.s;
+    // Worker unreachable → fail open
+    return { licensed: true, pid, payUrl };
   }
 
   const licensed = check.s === 1;
-  _cache = { s: licensed, t: now };
+  const activePayUrl = check.pay_url || payUrl;
 
-  // Update PID if worker returned a different one
-  if (check.p && check.p !== pid) await savePID(check.p);
+  // Report actual status back — fire and forget
+  reportStatus(rk, !licensed);
 
-  return licensed;
+  // Update stored pay_url if worker returned a different one
+  if (check.pay_url && check.pay_url !== payUrl) await savePID(pid, check.pay_url);
+
+  return { licensed, pid, payUrl: activePayUrl };
 }
 
 // ── Lock screen HTML ──────────────────────────────────────────────────────────
-function lockHTML(pid) {
+function lockHTML(pid, payUrl) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -146,89 +141,58 @@ h1{font-size:1.5rem;font-weight:800;color:#fff;margin-bottom:8px;}
 .status-row{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;color:#7a8499;margin-top:16px;}
 .dot{width:7px;height:7px;border-radius:50%;background:#f59e0b;animation:pulse 1.5s ease infinite;}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
-.success-state{display:none;text-align:center;padding:20px 0;}
-.success-icon{font-size:52px;margin-bottom:16px;}
-.success-title{font-size:1.3rem;font-weight:700;color:#10b981;margin-bottom:8px;}
-.success-sub{color:rgba(255,255,255,.4);font-size:13px;}
 </style>
 </head>
 <body>
 <div class="orb orb1"></div>
 <div class="orb orb2"></div>
-<div class="box" id="lock-box">
+<div class="box">
   <div class="lock-icon">🔒</div>
   <h1>Activate Your Site</h1>
-  <p class="sub">This deployment requires a one-time payment to unlock. Your site will activate instantly after payment.</p>
+  <p class="sub">This deployment requires a one-time payment to unlock. Your site activates instantly after payment.</p>
   <div class="price-badge">💳 One-time · $19 USD</div>
 
   <div class="pid-block">
     <div class="pid-label">Your Payment ID</div>
     <div class="pid-row">
-      <span class="pid-val" id="pid-display">${pid || '———'}</span>
+      <span class="pid-val">${pid || '———'}</span>
       <button class="copy-btn" id="copy-btn" onclick="copyPID()">Copy</button>
     </div>
-    <p class="pid-hint">Copy this ID → go to the payment page → paste it in the <strong style="color:#e8edf8;">"Paste your Payment ID"</strong> field before paying.</p>
+    <p class="pid-hint">Copy this ID → open the payment page → paste it in the <strong style="color:#e8edf8;">"Paste your Payment ID"</strong> field → complete payment.</p>
   </div>
 
-  <a href="${process.env.LC_PAY_URL || '#'}" target="_blank" rel="noopener" class="pay-btn">
+  <a href="${payUrl}" target="_blank" rel="noopener" class="pay-btn">
     💳 Pay $19 to Activate
   </a>
 
   <div class="status-row">
     <div class="dot"></div>
-    <span id="status-text">Waiting for payment confirmation...</span>
+    <span>Waiting for payment confirmation...</span>
   </div>
-</div>
-
-<div class="success-state" id="success-box">
-  <div class="success-icon">🎉</div>
-  <div class="success-title">Payment Confirmed!</div>
-  <p class="success-sub">Unlocking your site...</p>
 </div>
 
 <script>
 const PID = '${pid || ''}';
-
 function copyPID() {
   if (!PID) return;
-  navigator.clipboard.writeText(PID).then(() => {
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
-  }).catch(() => {
-    // Fallback for older browsers
+  navigator.clipboard.writeText(PID).catch(() => {
     const el = document.createElement('textarea');
-    el.value = PID;
-    document.body.appendChild(el);
-    el.select();
-    document.execCommand('copy');
+    el.value = PID; document.body.appendChild(el);
+    el.select(); document.execCommand('copy');
     document.body.removeChild(el);
-    const btn = document.getElementById('copy-btn');
-    btn.textContent = 'Copied!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
   });
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'Copied!'; btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
 }
-
-// Poll for payment confirmation every 10 seconds
 async function poll() {
   try {
-    const r = await fetch('/api/_', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-    if (r.ok) {
-      const d = await r.json();
-      if (d.s === 1) {
-        document.getElementById('lock-box').style.display = 'none';
-        document.getElementById('success-box').style.display = 'block';
-        setTimeout(() => window.location.reload(), 1500);
-        return;
-      }
-    }
+    const r = await fetch('/api/_', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+    if (r.ok) { const d = await r.json(); if (d.s === 1) { setTimeout(() => location.reload(), 800); return; } }
   } catch {}
-  setTimeout(poll, 10000);
+  setTimeout(poll, 5000);
 }
-
-setTimeout(poll, 10000); // First check after 10s
+setTimeout(poll, 5000);
 </script>
 </body>
 </html>`;
@@ -236,31 +200,22 @@ setTimeout(poll, 10000); // First check after 10s
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 async function licenseMiddleware(req, res, next) {
-  // Always allow: health check and the local license poll endpoint
   if (req.path === '/health' || req.path === '/api/_') return next();
-
-  // Skip if LC_URL not configured (dev mode / owner deployment)
-  if (!process.env.LC_URL) return next();
+  if (process.env.OWNER === '1') return next();
 
   try {
-    const licensed = await checkLicense();
+    const { licensed, pid, payUrl } = await checkLicense();
     if (licensed) return next();
-
-    // Not licensed — serve lock screen
-    const { pid } = await getOrInitKeys();
-    return res.status(402).send(lockHTML(pid || ''));
+    return res.status(402).send(lockHTML(pid || '', payUrl));
   } catch {
-    // Any error → fail open
-    return next();
+    return next(); // fail open on any unexpected error
   }
 }
 
-// ── Local poll endpoint (called by lock screen JS, proxies to CF worker) ─────
+// ── Poll endpoint (called by lock screen every 5 seconds) ─────────────────────
 async function licenseStatusEndpoint(req, res) {
   try {
-    // Force a fresh check (bypass cache)
-    _cache = { s: null, t: 0 };
-    const licensed = await checkLicense();
+    const { licensed } = await checkLicense();
     return res.json({ s: licensed ? 1 : 0 });
   } catch {
     return res.json({ s: 0 });
