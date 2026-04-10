@@ -38,6 +38,13 @@ const CollabPage = (() => {
 
               <form id="collab-form" onsubmit="CollabPage._submitCollab(event)">
 
+                <!-- Name -->
+                <div class="form-group">
+                  <label class="form-label">Your Name *</label>
+                  <input type="text" name="name" class="form-input"
+                         placeholder="What should I call you?" required maxlength="100">
+                </div>
+
                 <!-- What do you need? -->
                 <div class="form-group">
                   <label class="form-label">What do you need? *</label>
