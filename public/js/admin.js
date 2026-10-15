@@ -68,7 +68,7 @@ const Admin = (() => {
   async function api(path, opts = {}) {
     const res = await fetch(path, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...opts.headers }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
     if (res.status === 401) { logout(); return null; }
-    if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(e.error); }
+    if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); const ex = new Error(e.error); if (e.fields) ex.fields = e.fields; throw ex; }
     return res.json();
   }
 
@@ -297,13 +297,15 @@ const Admin = (() => {
   }
 
   // ─── Settings ──────────────────────────────────────────────────────────────
-  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','theme_interval','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','cylinder_labels','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact','chat_system_prompt'];
+  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','accent_color','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','cylinder_labels','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact'];
 
   async function loadSettings() {
     try {
       const s = await api('/api/admin/settings'); if (!s) return;
       SETTING_KEYS.forEach(k=>sv(`s-${k}`,s[k]??''));
       SETTING_KEYS.forEach(k=>{ const el=document.getElementById(`s-${k}`); if(el) el.addEventListener('input',markDirty); });
+      initAccentField();
+      await loadAi();
       // Live char counter for collab_intro
       const ciEl = document.getElementById('s-collab_intro');
       const ciCount = document.getElementById('collab-intro-count');
@@ -318,12 +320,210 @@ const Admin = (() => {
   async function saveSettings() {
     const updates = {};
     SETTING_KEYS.forEach(k=>{ updates[k]=gv(`s-${k}`); });
+    clearErrors();
+    // The AI settings are validated on their own route. Save them first so a mistake there stops everything.
+    if (aiLoaded) {
+      const ok = await saveAi();
+      if (!ok) return;
+    }
     try {
       await api('/api/admin/settings',{method:'PUT',body:updates});
       toast('Settings saved!'); markClean();
       const msg = document.getElementById('settings-msg');
       msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),3000);
-    } catch (err) { toast(err.message, false); }
+    } catch (err) {
+      showFieldError('accent_color', err.message);
+      toast(err.message, false);
+    }
+  }
+
+  // ─── Accent colour field ───────────────────────────────────────────────────
+  function initAccentField() {
+    const input = document.getElementById('s-accent_color');
+    const picker = document.getElementById('accent-preview');
+    if (!input || !picker || input.dataset.bound) return;
+    input.dataset.bound = '1';
+    const valid = v => /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(v.trim());
+    const expand = v => { v = v.trim(); return v.length === 4 ? '#' + v.slice(1).split('').map(c=>c+c).join('') : v; };
+    const sync = () => { if (valid(input.value)) picker.value = expand(input.value).toLowerCase(); };
+    sync();
+    input.addEventListener('input', () => { sync(); showFieldError('accent_color', valid(input.value) || !input.value ? '' : 'Use a hex colour such as #0b7285.'); });
+    picker.addEventListener('input', () => { input.value = picker.value; markDirty(); showFieldError('accent_color',''); });
+  }
+
+  // ─── AI Chat settings ──────────────────────────────────────────────────────
+  const AI_TEXT = ['system_prompt','temperature','max_tokens','daily_cap','off_message','name','launcher_label','greeting','suggestions','disclaimer'];
+  let aiLoaded = false, aiState = { keySet:false, savedUrl:'', defaultPrompt:'', clearKey:false, models:[] };
+
+  function $(id) { return document.getElementById(id); }
+  function showFieldError(key, msg) {
+    document.querySelectorAll(`.ai-err[data-for="${key}"]`).forEach(e => { e.textContent = msg || ''; });
+  }
+  function clearErrors() {
+    document.querySelectorAll('.ai-err').forEach(e => { e.textContent = ''; });
+    const sum = $('ai-summary'); if (sum) { sum.style.display = 'none'; sum.textContent = ''; }
+  }
+  function setStatus(id, msg, kind) {
+    const el = $(id); if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = kind === 'ok' ? '#34d399' : kind === 'err' ? '#f87171' : '#7a8499';
+  }
+
+  function renderKeyState(view) {
+    const saved = $('ai-key-saved'), input = $('ai-api_key'), help = $('ai-key-help');
+    const state = view.ai_api_key_state;
+    aiState.keySet = view.ai_api_key_set === '1';
+    aiState.clearKey = false;
+    input.value = '';
+    if (aiState.keySet && state === 'ok') {
+      saved.style.display = 'flex'; input.style.display = 'none';
+      $('ai-key-hint').textContent = view.ai_api_key_hint;
+      help.textContent = 'A key is saved. Use Replace key to enter a new one, or Remove key to delete it.';
+    } else {
+      saved.style.display = 'none'; input.style.display = '';
+      help.textContent = state === 'unreadable'
+        ? 'The saved key can no longer be read on this server. Please paste the key again.'
+        : 'The key is stored encrypted on your server and is never shown again after you save it.';
+    }
+  }
+
+  function fillAi(view) {
+    $('ai-enabled').checked = view.ai_enabled !== '0';
+    $('ai-base_url').value = view.ai_base_url || '';
+    aiState.savedUrl = view.ai_base_url || '';
+    AI_TEXT.forEach(k => { const el = $('ai-' + k); if (el) el.value = view['ai_' + k] ?? ''; });
+    aiState.defaultPrompt = view.default_system_prompt || '';
+    $('ai-legacy').style.display = (!view.ai_base_url && view.legacy_fallback) ? 'block' : 'none';
+    setModelList(view.ai_model ? [view.ai_model] : [], view.ai_model || '');
+    renderKeyState(view);
+    syncPreset();
+  }
+
+  function syncPreset() {
+    const sel = $('ai-preset'), url = $('ai-base_url').value.trim().replace(/\/+$/, '');
+    const match = Array.from(sel.options).find(o => o.value && o.value !== 'custom' && o.value === url);
+    sel.value = match ? match.value : (url ? 'custom' : '');
+  }
+
+  function setModelList(models, selected) {
+    aiState.models = models.slice();
+    if (selected && !aiState.models.includes(selected)) aiState.models.unshift(selected);
+    renderModelOptions(selected);
+  }
+  function renderModelOptions(selected) {
+    const sel = $('ai-model');
+    const q = ($('ai-model-search').value || '').trim().toLowerCase();
+    const current = selected !== undefined ? selected : sel.value;
+    const list = aiState.models.filter(m => !q || m.toLowerCase().includes(q) || m === current);
+    sel.innerHTML = '';
+    if (!aiState.models.length) {
+      sel.add(new Option('Load models to choose one', ''));
+    } else {
+      list.forEach(m => sel.add(new Option(m, m)));
+      if (!list.length) sel.add(new Option('No models match your search', ''));
+    }
+    if (current && list.includes(current)) sel.value = current;
+  }
+
+  async function loadAi() {
+    try {
+      const view = await api('/api/admin/ai');
+      if (!view) return;
+      fillAi(view);
+      if (!aiLoaded) bindAi();
+      aiLoaded = true;
+    } catch (e) { console.error('loadAi:', e); }
+  }
+
+  function typedKey() { const k = $('ai-api_key'); return k && k.style.display !== 'none' ? k.value.trim() : ''; }
+
+  function bindAi() {
+    const dirty = () => markDirty();
+    ['ai-enabled','ai-base_url','ai-api_key','ai-model','ai-system_prompt', ...AI_TEXT.map(k=>'ai-'+k)].forEach(id => { const el = $(id); if (el) el.addEventListener('input', dirty); });
+    $('ai-enabled').addEventListener('change', dirty);
+
+    $('ai-preset').addEventListener('change', e => {
+      const v = e.target.value;
+      if (v && v !== 'custom') { $('ai-base_url').value = v; markDirty(); showFieldError('ai_base_url',''); }
+      if (v === 'custom') $('ai-base_url').focus();
+    });
+    $('ai-base_url').addEventListener('input', () => { syncPreset(); showFieldError('ai_base_url',''); });
+    $('ai-model-search').addEventListener('input', () => renderModelOptions());
+
+    $('ai-key-replace').addEventListener('click', () => {
+      $('ai-key-saved').style.display = 'none'; const k = $('ai-api_key'); k.style.display = ''; k.focus(); aiState.clearKey = false; markDirty();
+    });
+    $('ai-key-clear').addEventListener('click', () => {
+      if (!confirm('Remove the saved API key? The assistant stops working until you add a new one. This takes effect when you save.')) return;
+      aiState.clearKey = true; $('ai-key-hint').textContent = 'Key will be removed when you save'; markDirty();
+    });
+    $('ai-prompt-reset').addEventListener('click', () => {
+      if (!confirm('Replace the system prompt text with the default? This takes effect when you save.')) return;
+      $('ai-system_prompt').value = aiState.defaultPrompt; markDirty();
+    });
+
+    $('ai-load-models').addEventListener('click', loadModels);
+    $('ai-test').addEventListener('click', testConnection);
+  }
+
+  function tryBody() {
+    const body = { base_url: $('ai-base_url').value.trim(), model: $('ai-model').value };
+    const k = typedKey(); if (k) body.api_key = k;
+    return body;
+  }
+
+  async function loadModels() {
+    const btn = $('ai-load-models');
+    showFieldError('ai_base_url',''); setStatus('ai-models-status', 'Loading models...');
+    btn.disabled = true;
+    try {
+      const r = await api('/api/admin/ai/models', { method:'POST', body: tryBody() });
+      if (!r) return;
+      if (!r.ok) { setStatus('ai-models-status', r.error, 'err'); return; }
+      setModelList(r.models, $('ai-model').value);
+      setStatus('ai-models-status', `${r.models.length} model${r.models.length === 1 ? '' : 's'} found.`, 'ok');
+    } catch (e) { setStatus('ai-models-status', e.message || 'Could not load models.', 'err'); }
+    finally { btn.disabled = false; }
+  }
+
+  async function testConnection() {
+    const btn = $('ai-test');
+    if (!$('ai-model').value) { setStatus('ai-test-result', 'Choose a model first, then test the connection.', 'err'); return; }
+    setStatus('ai-test-result', 'Testing...'); btn.disabled = true;
+    try {
+      const r = await api('/api/admin/ai/test', { method:'POST', body: tryBody() });
+      if (!r) return;
+      setStatus('ai-test-result', r.ok ? r.message : r.error, r.ok ? 'ok' : 'err');
+    } catch (e) { setStatus('ai-test-result', e.message || 'The test could not run.', 'err'); }
+    finally { btn.disabled = false; }
+  }
+
+  // Returns true when saved (or nothing to save). Shows plain language errors beside each field.
+  async function saveAi() {
+    const body = {
+      ai_enabled: $('ai-enabled').checked ? '1' : '0',
+      ai_base_url: $('ai-base_url').value.trim(),
+      ai_model: $('ai-model').value,
+    };
+    AI_TEXT.forEach(k => { body['ai_' + k] = $('ai-' + k).value; });
+    const k = typedKey(); if (k) body.ai_api_key = k;
+    if (aiState.clearKey) body.ai_api_key_clear = true;
+    try {
+      const r = await api('/api/admin/ai', { method:'PUT', body });
+      if (!r) return false;
+      if (r.settings) fillAi(r.settings);
+      return true;
+    } catch (err) {
+      const fields = err.fields || {};
+      Object.entries(fields).forEach(([key, msg]) => showFieldError(key, msg));
+      const sum = $('ai-summary');
+      const count = Object.keys(fields).length;
+      sum.textContent = count ? 'Some AI settings need fixing. Check the messages below.' : err.message;
+      sum.style.display = 'block';
+      const aiBtn = document.querySelector('.tab-btn[onclick*="s-chat"]'); if (aiBtn) switchTab('s-chat', aiBtn);
+      toast(count ? 'Some AI settings need fixing.' : err.message, false);
+      return false;
+    }
   }
 
   // ─── Collabs ───────────────────────────────────────────────────────────────

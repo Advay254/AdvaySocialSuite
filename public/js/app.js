@@ -1,94 +1,52 @@
-/* AdvaySocialSuite — SPA Core */
+/* AdvaySocialSuite 1.0.0 SPA core: routing, data cache, navbar, drawer, footer. */
 const App = (() => {
 
   let currentPage = null;
+  let firstRender = true;
 
-  // ─── Themes — 4 palettes, cycle every N minutes (from settings) ──────────────
-  const THEMES = [
-    { name:'cosmos',  '--cyan':'#00e5ff', '--violet':'#8b5cf6', '--emerald':'#10b981', '--bg':'#050813', '--bg-2':'#0a0f23' },
-    { name:'ember',   '--cyan':'#ff6b35', '--violet':'#ff4081', '--emerald':'#ffd740', '--bg':'#0d0806', '--bg-2':'#1a0f0a' },
-    { name:'matrix',  '--cyan':'#00ff41', '--violet':'#00cc33', '--emerald':'#80ff00', '--bg':'#020804', '--bg-2':'#050f07' },
-    { name:'dusk',    '--cyan':'#c084fc', '--violet':'#f472b6', '--emerald':'#34d399', '--bg':'#07050d', '--bg-2':'#100a1c' },
-  ];
-
-  let _themeTimer = null;
-
-  function applyTheme(idx, animate) {
-    const t = THEMES[idx % THEMES.length];
-    const r = document.documentElement;
-    if (animate) {
-      const overlay = document.getElementById('theme-fade');
-      if (overlay) {
-        // Fade to black, swap vars, fade back in
-        overlay.style.transition = 'opacity 0.5s ease';
-        overlay.style.opacity = '1';
-        setTimeout(() => {
-          Object.entries(t).forEach(([k,v]) => { if (k !== 'name') r.style.setProperty(k, v); });
-          overlay.style.opacity = '0';
-        }, 500);
-        return;
-      }
-    }
-    Object.entries(t).forEach(([k,v]) => { if (k !== 'name') r.style.setProperty(k, v); });
+  // ─── API and shared data ─────────────────────────────────────────────────────
+  async function api(path, opts = {}) {
+    const res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+    if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(e.error); }
+    return res.json();
   }
 
-  async function initThemes() {
-    const DEFAULT_MINS = 6;
-    let intervalMs = DEFAULT_MINS * 60 * 1000;
-
-    // Apply initial theme immediately — no API wait needed
-    let currentIdx = Math.floor(Date.now() / intervalMs) % THEMES.length;
-    applyTheme(currentIdx, false);
-
-    function startCycle(ms) {
-      if (_themeTimer) clearInterval(_themeTimer);
-      _themeTimer = setInterval(() => {
-        currentIdx = (currentIdx + 1) % THEMES.length;
-        applyTheme(currentIdx, true);
-      }, ms);
-    }
-
-    startCycle(intervalMs);
-
-    // Then refine with actual setting from DB
-    try {
-      const s = await api('/api/settings');
-      const mins = Math.max(1, parseInt(s.theme_interval) || DEFAULT_MINS);
-      const newMs = mins * 60 * 1000;
-      if (newMs !== intervalMs) {
-        intervalMs = newMs;
-        currentIdx = Math.floor(Date.now() / intervalMs) % THEMES.length;
-        applyTheme(currentIdx, false);
-        startCycle(intervalMs);
-      }
-    } catch {}
+  const cache = {};
+  function once(key, path) {
+    if (!cache[key]) cache[key] = api(path).catch(err => { delete cache[key]; throw err; });
+    return cache[key];
+  }
+  const getSettings = () => once('settings', '/api/settings');
+  const getProfile = () => once('profile', '/api/profile');
+  async function shared() {
+    const [settings, profile] = await Promise.all([getSettings().catch(() => ({})), getProfile().catch(() => ({}))]);
+    return { settings, profile };
   }
 
-  // ─── Admin session — check JWT expiry on every load ──────────────────────────
+  // ─── Admin session: drop an expired token on every load ──────────────────────
   function checkAdminToken() {
-    const token = sessionStorage.getItem('adv_admin_token');
-    if (!token) return;
     try {
+      const token = sessionStorage.getItem('adv_admin_token');
+      if (!token) return;
       const payload = JSON.parse(atob(token.split('.')[1]));
-      if (payload.exp && Date.now() / 1000 > payload.exp) {
-        sessionStorage.removeItem('adv_admin_token');
-      }
-    } catch {
-      sessionStorage.removeItem('adv_admin_token');
-    }
+      if (payload.exp && Date.now() / 1000 > payload.exp) sessionStorage.removeItem('adv_admin_token');
+    } catch { try { sessionStorage.removeItem('adv_admin_token'); } catch { /* storage blocked */ } }
   }
 
   // ─── Routes ──────────────────────────────────────────────────────────────────
-  const ROUTES = { '':'home','/':'home','/about':'about','/repos':'repos','/tools':'tools','/collab':'collab','/templates':'templates' };
-  const PAGES  = { home:HomePage, about:AboutPage, repos:ReposPage, tools:ToolsPage, collab:CollabPage, templates:TemplatesPage };
+  const ROUTES = { '': 'home', '/': 'home', '/about': 'about', '/repos': 'repos', '/tools': 'tools', '/collab': 'collab', '/templates': 'templates' };
+  const PAGES = { home: HomePage, about: AboutPage, repos: ReposPage, tools: ToolsPage, collab: CollabPage, templates: TemplatesPage };
+  const LABEL_KEY = { home: 'nav_home', about: 'nav_about', repos: 'nav_repos', tools: 'nav_tools', templates: 'templates_label', collab: 'nav_collab' };
 
-  function getRoute() {
-    return ROUTES[window.location.hash.replace('#','')||'/'] || 'home';
-  }
+  function getRoute() { return ROUTES[window.location.hash.replace('#', '') || '/'] || 'home'; }
+  const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  async function navigate(force=false) {
+  async function navigate(force = false) {
     const name = getRoute();
-    if (!force && name===currentPage) return;
+    if (!force && name === currentPage) return;
     currentPage = name;
     const page = PAGES[name];
     if (!page) return;
@@ -96,121 +54,188 @@ const App = (() => {
     const app = document.getElementById('app');
     app.innerHTML = '';
     const wrap = document.createElement('div');
-    wrap.className = 'page-enter';
     wrap.innerHTML = page.render();
     app.appendChild(wrap);
-    if (page.init) await page.init();
+    UI.reveal(wrap);
 
     updateNav(name);
-    window.scrollTo({ top:0, behavior:'smooth' });
+    closeDrawer(false);
+    window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+    if (!firstRender) app.focus({ preventScroll: true });
+    firstRender = false;
+
+    try { if (page.init) await page.init(); } catch (e) { console.error('Page init error:', e); }
+    UI.reveal(wrap);
+    setTitle(name);
     trackPage(name);
   }
 
+  async function setTitle(name) {
+    const { settings } = await shared();
+    const site = UI.stripEmoji(settings.site_name || '');
+    const label = UI.stripEmoji(settings[LABEL_KEY[name]] || '');
+    document.title = name === 'home' || !label ? (site || document.title) : (site ? `${label} | ${site}` : label);
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta && settings.meta_description) meta.setAttribute('content', UI.stripEmoji(settings.meta_description));
+  }
+
   function updateNav(name) {
-    document.querySelectorAll('.nav-link,.mobile-nav-link').forEach(el => {
-      el.classList.toggle('active', el.dataset.page===name);
+    document.querySelectorAll('.nav__link, .drawer__link').forEach(el => {
+      if (el.dataset.page === name) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
     });
   }
 
   async function trackPage(page) {
-    try { await fetch('/api/pageview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page})}); } catch {}
+    try { await fetch('/api/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page }) }); } catch { /* analytics are optional */ }
   }
 
-  // ─── Load nav profile (avatar + site name) ───────────────────────────────────
-  async function loadNavProfile() {
-    try {
-      const [profile, settings] = await Promise.all([
-        api('/api/profile'),
-        api('/api/settings'),
-      ]);
+  // ─── Navbar, drawer, footer ──────────────────────────────────────────────────
+  let drawerReturnFocus = null;
 
-      // Centered nav name (mobile) + brand name beside logo (desktop)
-      const centerName = document.getElementById('nav-center-name');
-      if (centerName) centerName.textContent = (profile.name || 'ADVAY').toUpperCase();
-      const brandName = document.getElementById('nav-brand-name');
-      if (brandName) brandName.textContent = (profile.name || 'ADVAY').toUpperCase();
-
-      // Avatar
-      const wrap = document.getElementById('nav-avatar');
-      const initial = document.getElementById('nav-initial');
-      if (profile.avatar_url && profile.avatar_url.trim()) {
-        wrap.innerHTML = `<img src="${profile.avatar_url}" alt="${profile.name||''}" class="nav-avatar-img" onerror="this.parentElement.innerHTML='<span class=nav-initial>${(profile.name||'A').charAt(0).toUpperCase()}</span>'">`;
-      } else if (initial) {
-        initial.textContent = (profile.name||'A').charAt(0).toUpperCase();
-      }
-    } catch {}
+  function drawerFocusables() {
+    return Array.from(document.querySelectorAll('#drawer a[href], #drawer button, #drawer [tabindex]:not([tabindex="-1"])')).filter(el => !el.classList.contains('hidden') && el.offsetParent !== null);
+  }
+  function openDrawer() {
+    const d = document.getElementById('drawer');
+    if (!d || d.classList.contains('is-open')) return;
+    drawerReturnFocus = document.activeElement;
+    d.classList.add('is-open');
+    document.getElementById('drawer-backdrop').classList.add('is-open');
+    document.getElementById('menu-btn').setAttribute('aria-expanded', 'true');
+    document.documentElement.classList.add('scroll-lock');
+    setTimeout(() => document.getElementById('drawer-close')?.focus(), 30);
+  }
+  function closeDrawer(restoreFocus = true) {
+    const d = document.getElementById('drawer');
+    if (!d || !d.classList.contains('is-open')) return;
+    d.classList.remove('is-open');
+    document.getElementById('drawer-backdrop').classList.remove('is-open');
+    document.getElementById('menu-btn').setAttribute('aria-expanded', 'false');
+    document.documentElement.classList.remove('scroll-lock');
+    if (restoreFocus) (drawerReturnFocus || document.getElementById('menu-btn'))?.focus();
   }
 
-  // ─── Particles ───────────────────────────────────────────────────────────────
-  function initParticles() {
-    const canvas = document.getElementById('particles');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    let P=[], W, H;
-
-    const cyan = () => getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
-    const violet = () => getComputedStyle(document.documentElement).getPropertyValue('--violet').trim();
-
-    function resize() { W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
-    function mkp() { return { x:Math.random()*W, y:Math.random()*H, vx:(Math.random()-.5)*.15, vy:(Math.random()-.5)*.15, r:Math.random()*1.2+.2, a:Math.random()*.35+.05, c:Math.random()>.7?1:0 }; }
-
-    function draw() {
-      ctx.clearRect(0,0,W,H);
-      const c = cyan(), v = violet();
-      P.forEach(p => {
-        p.x+=p.vx; p.y+=p.vy;
-        if(p.x<0)p.x=W; if(p.x>W)p.x=0; if(p.y<0)p.y=H; if(p.y>H)p.y=0;
-        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-        ctx.fillStyle=p.c?v:c; ctx.globalAlpha=p.a; ctx.fill(); ctx.globalAlpha=1;
-      });
-      for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++) {
-        const dx=P[i].x-P[j].x, dy=P[i].y-P[j].y, d=Math.sqrt(dx*dx+dy*dy);
-        if(d<90) { ctx.beginPath(); ctx.moveTo(P[i].x,P[i].y); ctx.lineTo(P[j].x,P[j].y);
-          ctx.strokeStyle=c; ctx.globalAlpha=(1-d/90)*.05; ctx.lineWidth=.5; ctx.stroke(); ctx.globalAlpha=1; }
-      }
-      requestAnimationFrame(draw);
-    }
-    resize(); P=Array.from({length:70},mkp); draw();
-    window.addEventListener('resize',()=>{ resize(); P=Array.from({length:70},mkp); });
-  }
-
-  // ─── Navbar ──────────────────────────────────────────────────────────────────
   function initNavbar() {
-    const nav = document.getElementById('navbar');
-    window.addEventListener('scroll',()=>nav.classList.toggle('scrolled',window.scrollY>20),{passive:true});
-    document.getElementById('menu-btn')?.addEventListener('click',()=>document.getElementById('mobile-menu').classList.toggle('hidden'));
-    document.querySelectorAll('.mobile-nav-link').forEach(el=>el.addEventListener('click',()=>document.getElementById('mobile-menu').classList.add('hidden')));
-  }
+    const header = document.getElementById('site-header');
+    const onScroll = () => header.classList.toggle('is-scrolled', window.scrollY > 8);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
 
-  // ─── Toast ───────────────────────────────────────────────────────────────────
-  function showToast(msg,type='success',dur=3000) {
-    const t=document.getElementById('toast');
-    t.textContent=msg; t.className=`toast ${type}`; t.classList.remove('hidden');
-    clearTimeout(App._tt); App._tt=setTimeout(()=>t.classList.add('hidden'),dur);
-  }
+    document.getElementById('menu-btn').innerHTML = UI.icon('menu', 22);
+    document.getElementById('drawer-close').innerHTML = UI.icon('x', 22);
+    document.getElementById('theme-slot').innerHTML = UI.theme.switchHtml();
+    document.getElementById('drawer-theme-slot').innerHTML = UI.theme.switchHtml();
+    UI.theme.apply(UI.theme.get());
 
-  // ─── API ─────────────────────────────────────────────────────────────────────
-  async function api(path, opts={}) {
-    const res = await fetch(path,{
-      headers:{'Content-Type':'application/json',...opts.headers},
-      ...opts, body:opts.body?JSON.stringify(opts.body):undefined,
+    document.getElementById('menu-btn').addEventListener('click', () => {
+      document.getElementById('drawer').classList.contains('is-open') ? closeDrawer() : openDrawer();
     });
-    if(!res.ok){ const e=await res.json().catch(()=>({error:'Request failed'})); throw new Error(e.error); }
-    return res.json();
+    document.getElementById('drawer-close').addEventListener('click', () => closeDrawer());
+    document.getElementById('drawer-backdrop').addEventListener('click', () => closeDrawer());
+    document.getElementById('drawer-links').addEventListener('click', e => { if (e.target.closest('a')) closeDrawer(false); });
+
+    document.addEventListener('keydown', e => {
+      const d = document.getElementById('drawer');
+      if (!d.classList.contains('is-open')) return;
+      if (e.key === 'Escape') { e.preventDefault(); closeDrawer(); return; }
+      if (e.key === 'Tab') {
+        const f = drawerFocusables();
+        if (!f.length) return;
+        const first = f[0], last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    window.matchMedia('(min-width: 900px)').addEventListener?.('change', ev => { if (ev.matches) closeDrawer(false); });
+
+    document.getElementById('skip-link').addEventListener('click', e => {
+      e.preventDefault();
+      document.getElementById('app').focus();
+    });
+
+    document.addEventListener('click', e => {
+      if (e.target.closest('[data-action="retry"]')) navigate(true);
+    });
+  }
+
+  async function renderChrome() {
+    const { settings, profile } = await shared();
+
+    if (settings.accent_color) UI.applyAccent(settings.accent_color);
+
+    // Brand
+    const display = UI.stripEmoji(profile.name || settings.site_name || '');
+    document.getElementById('brand-name').textContent = display;
+    const mark = document.getElementById('brand-mark');
+    const avatar = UI.safeUrl(profile.avatar_url);
+    const initial = (display.charAt(0) || '').toUpperCase();
+    mark.textContent = initial;
+    if (avatar) {
+      const img = new Image();
+      img.alt = '';
+      img.onload = () => { mark.textContent = ''; mark.appendChild(img); };
+      img.src = avatar;
+    }
+
+    // Labels come from settings
+    document.querySelectorAll('[data-label]').forEach(el => { el.textContent = UI.stripEmoji(settings[el.dataset.label] || ''); });
+
+    // Support link comes from Profile and is hidden when empty
+    const support = UI.safeUrl(profile.bmc_url);
+    const label = UI.stripEmoji(settings.support_label || '');
+    ['support-btn', 'drawer-support'].forEach(id => {
+      const a = document.getElementById(id);
+      if (!a) return;
+      if (support && label) { a.href = support; a.textContent = label; a.classList.remove('hidden'); } else a.classList.add('hidden');
+    });
+
+    renderFooter(settings, profile, support);
+  }
+
+  function renderFooter(settings, profile, support) {
+    const foot = document.getElementById('site-footer');
+    const site = UI.text(settings.site_name || profile.name || '');
+    const links = [['#/', 'nav_home'], ['#/about', 'nav_about'], ['#/repos', 'nav_repos'], ['#/tools', 'nav_tools'], ['#/templates', 'templates_label'], ['#/collab', 'nav_collab']]
+      .map(([href, key]) => settings[key] ? `<li><a href="${href}">${UI.text(settings[key])}</a></li>` : '').join('');
+    const socials = [['github_url', 'GitHub'], ['linkedin_url', 'LinkedIn'], ['twitter_url', 'X'], ['youtube_url', 'YouTube'], ['discord_url', 'Discord'], ['tiktok_url', 'TikTok']]
+      .map(([k, name]) => { const u = UI.safeUrl(profile[k]); return u ? `<li><a href="${UI.esc(u)}" target="_blank" rel="noopener noreferrer">${name}</a></li>` : ''; }).join('');
+    const supportCol = support && settings.support_label ? `
+      <div>
+        <h2 class="footer__title">${UI.text(settings.footer_support_heading)}</h2>
+        <p class="footer__about" style="margin-bottom:var(--space-3)">${UI.text(settings.footer_support_text)}</p>
+        <a class="btn btn--secondary btn--sm" href="${UI.esc(support)}" target="_blank" rel="noopener noreferrer">${UI.text(settings.support_label)} ${UI.icon('arrow-up-right')}</a>
+      </div>` : '<div></div>';
+
+    foot.innerHTML = `
+      <div class="container">
+        <div class="footer__grid">
+          <div>
+            <strong>${site}</strong>
+            ${settings.site_tagline ? `<p class="footer__about" style="margin-top:var(--space-2)">${UI.text(settings.site_tagline)}</p>` : ''}
+          </div>
+          <div>
+            <h2 class="footer__title">${UI.text(settings.footer_nav_heading)}</h2>
+            <ul class="footer__list">${links}</ul>
+          </div>
+          <div>
+            ${socials ? `<h2 class="footer__title">${UI.text(settings.footer_connect_heading)}</h2><ul class="footer__list">${socials}</ul>` : ''}
+          </div>
+          ${supportCol}
+        </div>
+        <div class="footer__base"><span>\u00A9 ${new Date().getFullYear()} ${site}</span></div>
+      </div>`;
   }
 
   // ─── Boot ────────────────────────────────────────────────────────────────────
   function init() {
     checkAdminToken();
-    initThemes();   // async — applies immediately then refines from settings
-    initParticles();
     initNavbar();
-    loadNavProfile();
+    renderChrome();
     ChatWidget.init();
     navigate(true);
-    window.addEventListener('hashchange',()=>navigate());
+    window.addEventListener('hashchange', () => navigate());
   }
 
   document.addEventListener('DOMContentLoaded', init);
-  return { showToast, api, navigate };
+  return { api, navigate, getSettings, getProfile, shared, showToast: (m, t) => UI.toast(m, t === 'error' ? 'error' : undefined) };
 })();
