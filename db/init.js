@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const { DEFAULTS: AI_DEFAULTS } = require('../lib/aiDefaults');
 
 let pool;
 function getPool() {
@@ -131,7 +132,40 @@ const SEED_SETTINGS = [
     { icon:'🔌', title:'API Microservices', desc:'High-performance, purpose-built services designed for automation pipelines and free-tier hosting.' },
   ])],
   ['funfact', 'If I do it twice, I automate it. If it takes more than 20 seconds daily, I automate it aggressively.'],
-  ['chat_system_prompt', `You are the AdvaySocialSuite AI Assistant — a helpful guide for visitors to this portfolio and tools hub.\n\nSTRICT RULE: Only answer questions about the owner and their projects. If asked anything off-topic, respond ONLY with: "I can only help with questions about this portfolio and its projects. For everything else, try a general-purpose AI assistant!"`],
+];
+
+// Added in 1.0.0. Every value here is only ever inserted when the key does not exist yet.
+const SEED_SETTINGS_V1 = [
+  ['accent_color', '#0b7285'],
+  ['nav_home', 'Home'],
+  ['nav_about', 'About'],
+  ['nav_repos', 'Repos'],
+  ['nav_tools', 'Tools'],
+  ['nav_collab', 'Collaborate'],
+  ['support_label', 'Support'],
+  ['footer_nav_heading', 'Explore'],
+  ['footer_connect_heading', 'Connect'],
+  ['footer_support_heading', 'Support'],
+  ['footer_support_text', 'These tools are free to use. If they saved you time, you can help cover the hosting costs.'],
+  ['home_availability_label', 'Available for new projects'],
+  ['home_cta_primary_label', 'Explore tools'],
+  ['home_cta_secondary_label', 'Work with me'],
+  ['home_tools_kicker', 'Live products'],
+  ['home_tools_heading', 'Featured tools'],
+  ['home_tools_more_label', 'View all tools'],
+  ['home_templates_kicker', 'Automation'],
+  ['home_templates_more_label', 'View all templates'],
+  ['template_import_label', 'Import JSON'],
+  ['home_services_kicker', 'Services'],
+  ['home_services_heading', 'What I can build for you'],
+  ['home_services_subtitle', 'Practical systems that are simple to run and built to last.'],
+  ['home_philosophy_kicker', 'Philosophy'],
+  ['home_cta_heading', 'Have a project in mind?'],
+  ['home_cta_text', 'Tell me what you need. I will say honestly whether I can help and what it would take.'],
+  ['home_cta_button', 'Start a conversation'],
+  ['home_stat_tools_label', 'Live tools'],
+  ['home_stat_repos_label', 'Public repositories'],
+  ...Object.entries(AI_DEFAULTS).filter(([k]) => k !== 'ai_system_prompt'),
 ];
 
 const SEED_PROFILE = {
@@ -176,6 +210,14 @@ async function initDB() {
 
     // Always upsert new settings so existing deployments pick them up
     for (const [k, v] of SEED_SETTINGS) {
+      await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [k, v]);
+    }
+
+    // 1.0.0 settings. Existing values are never overwritten.
+    // The AI system prompt starts from whatever the owner already saved as chat_system_prompt.
+    await db.query("INSERT INTO site_settings (key,value) SELECT 'ai_system_prompt', value FROM site_settings WHERE key='chat_system_prompt' AND COALESCE(value,'') <> '' ON CONFLICT (key) DO NOTHING");
+    await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', ['ai_system_prompt', AI_DEFAULTS.ai_system_prompt]);
+    for (const [k, v] of SEED_SETTINGS_V1) {
       await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [k, v]);
     }
 
