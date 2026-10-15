@@ -9,6 +9,7 @@ const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const chatRoute = require('./routes/chat');
 const { licenseMiddleware, licenseStatusEndpoint } = require('./middleware/licenseCheck');
+const { version: APP_VERSION } = require('./package.json');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +36,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'AdvaySocialSuite',
+    version: APP_VERSION,
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
   });

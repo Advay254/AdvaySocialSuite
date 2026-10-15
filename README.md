@@ -24,7 +24,7 @@ A lean, self-hostable Node.js + Supabase web app with a built-in AI assistant, a
 - **GitHub Repos** — List of public repos with collapsible README.md previews
 - **Live Tools** — Showcase of active deployed tools with category filters
 - **Collaborate** — Contact form for collaboration requests
-- **AI Assistant** — In-page chat powered by Groq (on-topic only)
+- **AI Assistant** - In-page chat that works with any OpenAI compatible provider, set up from the admin panel (on-topic only)
 - **Suggestion Box** — Floating button for visitors to send feedback
 - **Admin Dashboard** — Hidden management panel at a secret URL path
 - **Health Endpoint** — `/health` for uptime monitoring
@@ -75,11 +75,32 @@ The app will auto-create all required database tables on first boot. No manual S
 | `ADMIN_USERNAME` | Admin login username |
 | `ADMIN_PASSWORD` | Admin login password |
 | `JWT_SECRET` | Long random string for JWT signing |
-| `GROQ_API_KEY` | Your Groq API key |
-| `GROQ_MODEL` | Groq model name (e.g. `llama-3.3-70b-versatile`) |
+| `GROQ_API_KEY` | Optional legacy fallback. Used only until a provider is saved in the admin panel |
+| `GROQ_MODEL` | Optional legacy fallback model name |
 | `SITE_NAME` | Display name for the site |
 
 ---
+
+## AI provider setup
+
+The assistant works with any service that follows the OpenAI chat format.
+
+1. Open the admin panel, then Settings, then the AI Chat tab.
+2. Pick a provider preset (OpenAI, Google Gemini, Groq, OpenRouter, Together, Mistral, DeepSeek) or choose Custom and type the Base URL.
+3. Paste your API key and press Load models, then choose a model from the list.
+4. Press Test connection, then Save Settings.
+
+Notes:
+
+- The key is stored encrypted in your database (AES-256-GCM, derived from `JWT_SECRET`). It is never sent back to the browser. If you change `JWT_SECRET`, enter the key again.
+- If you change the Base URL you must enter that provider's key again. The saved key is never sent to a different address.
+- The Base URL must be a public https address. Private, local and cloud metadata addresses are refused.
+- Until a provider is saved, the older `GROQ_API_KEY` and `GROQ_MODEL` variables keep working as a fallback.
+- The daily limit is counted per visitor in server memory and resets when the server restarts or the day changes.
+
+## Appearance
+
+Visitors can choose System, Light or Dark. The accent colour is set in Settings, General. Text colour on buttons and the light and dark variants are calculated automatically so they stay readable.
 
 ## ☁️ Deploying to Production
 
@@ -102,7 +123,7 @@ Works on any Node.js host. Set environment variables and run `npm start`.
 
 ```
 Browser → Express Server → Routes → PostgreSQL (Supabase)
-                        ↘ /api/chat → Groq API (server-side only)
+                        ↘ /api/chat → your AI provider (server-side only)
                         ↘ /{ADMIN_PATH} → Admin Dashboard
 ```
 
