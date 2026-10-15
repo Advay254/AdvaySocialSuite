@@ -2,103 +2,83 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>AdvaySocialSuite</title>
-  <meta name="description" content="Portfolio and tools hub — automation engineer and builder.">
+  <meta name="description" content="Portfolio and tools hub.">
+  <script>
+    /* Runs before first paint so the saved theme and accent colour never flash. */
+    (function () {
+      var r = document.documentElement;
+      try {
+        var t = localStorage.getItem('adv_theme');
+        if (t === 'light' || t === 'dark') r.setAttribute('data-theme', t);
+        var a = JSON.parse(localStorage.getItem('adv_accent') || 'null');
+        if (a && a.a) {
+          r.style.setProperty('--accent', a.a);
+          r.style.setProperty('--on-accent', a.o);
+          r.style.setProperty('--accent-fg-light', a.l);
+          r.style.setProperty('--accent-fg-dark', a.d);
+        }
+      } catch (e) { /* storage blocked: defaults apply */ }
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            'display': ['"Bebas Neue"', 'cursive'],
-            'heading': ['Syne', 'sans-serif'],
-            'body': ['"Plus Jakarta Sans"', 'sans-serif'],
-            'mono': ['"JetBrains Mono"', 'monospace'],
-          }
-        }
-      }
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
 </head>
-<body class="font-body overflow-x-hidden">
+<body>
+  <a href="#app" class="skip-link" id="skip-link">Skip to content</a>
 
-  <canvas id="particles" class="fixed inset-0 pointer-events-none z-0"></canvas>
-
-  <!-- Navigation -->
-  <nav id="navbar" class="fixed top-0 left-0 right-0 z-50">
-    <div class="max-w-6xl mx-auto container-pad">
-      <div class="flex items-center justify-between h-16 relative">
-
-        <!-- Logo left — avatar only -->
-        <a href="#/" class="nav-logo flex items-center gap-2 group">
-          <div id="nav-avatar" class="nav-avatar-wrap">
-            <span id="nav-initial" class="nav-initial">A</span>
-          </div>
-          <span id="nav-brand-name" class="nav-brand-name hidden md:block"></span>
-        </a>
-
-        <!-- Centered name — Bebas Neue, loaded from profile -->
-        <a href="#/" id="nav-center-name" class="nav-center-name"></a>
-
-        <!-- Desktop nav -->
-        <ul class="hidden md:flex items-center gap-1">
-          <li><a href="#/" class="nav-link" data-page="home">Home</a></li>
-          <li><a href="#/about" class="nav-link" data-page="about">About</a></li>
-          <li><a href="#/repos" class="nav-link" data-page="repos">Repos</a></li>
-          <li><a href="#/tools" class="nav-link" data-page="tools">Tools</a></li>
-          <li><a href="#/templates" class="nav-link" data-page="templates">n8n</a></li>
-          <li><a href="#/collab" class="nav-link" data-page="collab">Collab</a></li>
-        </ul>
-
-        <!-- Right -->
-        <div class="flex items-center gap-3">
-          <a href="https://www.buymeacoffee.com/advay254" target="_blank" rel="noopener"
-             class="bmc-btn hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all">
-            <span>☕</span><span>Support</span>
-          </a>
-          <button id="menu-btn" class="md:hidden p-2 rounded-lg border border-white/10 hover:border-white/20 transition-colors">
-            <div class="w-5 h-4 flex flex-col justify-between">
-              <span class="block h-0.5 bg-white/70 rounded"></span>
-              <span class="block h-0.5 bg-white/70 rounded"></span>
-              <span class="block h-0.5 bg-white/70 rounded"></span>
-            </div>
-          </button>
-        </div>
+  <header class="site-header" id="site-header">
+    <div class="container nav">
+      <a href="#/" class="brand" id="brand">
+        <span class="brand__mark" id="brand-mark" aria-hidden="true"></span>
+        <span class="brand__name" id="brand-name"></span>
+      </a>
+      <ul class="nav__links" id="nav-links">
+        <li><a href="#/" class="nav__link" data-page="home" data-label="nav_home"></a></li>
+        <li><a href="#/about" class="nav__link" data-page="about" data-label="nav_about"></a></li>
+        <li><a href="#/repos" class="nav__link" data-page="repos" data-label="nav_repos"></a></li>
+        <li><a href="#/tools" class="nav__link" data-page="tools" data-label="nav_tools"></a></li>
+        <li><a href="#/templates" class="nav__link" data-page="templates" data-label="templates_label"></a></li>
+        <li><a href="#/collab" class="nav__link" data-page="collab" data-label="nav_collab"></a></li>
+      </ul>
+      <div class="nav__actions">
+        <span id="theme-slot"></span>
+        <a id="support-btn" class="btn btn--secondary btn--sm nav__support hidden" href="#" target="_blank" rel="noopener noreferrer"></a>
+        <button type="button" class="icon-btn nav__toggle" id="menu-btn" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"></button>
       </div>
     </div>
+  </header>
 
-    <!-- Mobile menu -->
-    <div id="mobile-menu" class="mobile-menu md:hidden hidden">
-      <div class="px-4 py-3 space-y-1 border-t border-white/5">
-        <a href="#/" class="mobile-nav-link" data-page="home">Home</a>
-        <a href="#/about" class="mobile-nav-link" data-page="about">About</a>
-        <a href="#/repos" class="mobile-nav-link" data-page="repos">GitHub Repos</a>
-        <a href="#/tools" class="mobile-nav-link" data-page="tools">Live Tools</a>
-        <a href="#/templates" class="mobile-nav-link" data-page="templates">n8n Templates</a>
-        <a href="#/collab" class="mobile-nav-link" data-page="collab">Collaborate</a>
-        <a href="https://www.buymeacoffee.com/advay254" target="_blank" class="mobile-nav-link" style="color:#ffd54f;">☕ Support</a>
-      </div>
+  <div class="drawer-backdrop" id="drawer-backdrop"></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menu">
+    <div class="drawer__top">
+      <span id="drawer-theme-slot"></span>
+      <button type="button" class="icon-btn" id="drawer-close" aria-label="Close menu"></button>
     </div>
-  </nav>
+    <ul class="drawer__links" id="drawer-links">
+      <li><a href="#/" class="drawer__link" data-page="home" data-label="nav_home"></a></li>
+      <li><a href="#/about" class="drawer__link" data-page="about" data-label="nav_about"></a></li>
+      <li><a href="#/repos" class="drawer__link" data-page="repos" data-label="nav_repos"></a></li>
+      <li><a href="#/tools" class="drawer__link" data-page="tools" data-label="nav_tools"></a></li>
+      <li><a href="#/templates" class="drawer__link" data-page="templates" data-label="templates_label"></a></li>
+      <li><a href="#/collab" class="drawer__link" data-page="collab" data-label="nav_collab"></a></li>
+    </ul>
+    <div class="drawer__foot">
+      <a id="drawer-support" class="btn btn--secondary hidden" href="#" target="_blank" rel="noopener noreferrer"></a>
+    </div>
+  </aside>
 
-  <!-- App content -->
-  <main id="app" class="relative z-10"></main>
+  <main id="app" tabindex="-1"></main>
 
-  <!-- Chat widget -->
+  <footer class="site-footer" id="site-footer"></footer>
+
   <div id="chat-widget-root"></div>
 
-  <!-- Toast -->
-  <div id="toast" class="toast hidden"></div>
-
-  <!-- Theme crossfade overlay -->
-  <div id="theme-fade" style="position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:99999;transition:opacity 0.5s ease;"></div>
-
+  <script src="/js/ui.js"></script>
   <script src="/js/pages/home.js"></script>
   <script src="/js/pages/about.js"></script>
   <script src="/js/pages/repos.js"></script>
