@@ -410,7 +410,14 @@
               <div class="a-group"><label class="a-label">Years Exp Stat <span style="font-size:10px;opacity:.5">(shown on homepage)</span></label><input type="number" id="s-years_exp" class="a-input" placeholder="3"></div>
             </div>
             <div class="a-group"><label class="a-label">Hero Cylinder Labels <span style="font-size:10px;opacity:.5">(comma-separated words in the 3D spinning animation on homepage)</span></label><input id="s-cylinder_labels" class="a-input" placeholder="N8N WORKFLOWS,BAILEYS BOTS,REST APIs,..."></div>
-            <div class="a-group"><label class="a-label">Theme Rotation Interval <span style="font-size:10px;opacity:.5">(minutes between color scheme changes — 6 = 6 min, 60 = 1 hour)</span></label><input type="number" min="1" id="s-theme_interval" class="a-input" placeholder="6"></div>
+            <div class="a-group"><label class="a-label">Accent Colour <span style="font-size:10px;opacity:.5">(the main colour of buttons and highlights on your public site)</span></label>
+              <div style="display:flex;gap:10px;align-items:center;">
+                <input id="s-accent_color" class="a-input" placeholder="#0b7285" maxlength="7" autocomplete="off" spellcheck="false">
+                <input type="color" id="accent-preview" aria-label="Pick a colour" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border);background:transparent;flex-shrink:0;cursor:pointer;">
+              </div>
+              <div class="ai-err" data-for="accent_color" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">Type a hex colour such as #0b7285 or click the swatch to pick one. Text colour on buttons and the light and dark versions are adjusted automatically so everything stays readable.</p>
+            </div>
           </div>
 
           <!-- HOME PAGE -->
@@ -469,8 +476,72 @@
 
           <!-- AI CHAT -->
           <div id="tab-s-chat" class="tab-content">
-            <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Write this as if briefing an assistant. Tell it who you are, what you build, your pricing range, what you don't do, and how to respond to visitors. The more specific, the better it performs.</p>
-            <div class="a-group"><label class="a-label">AI System Prompt</label><textarea id="s-chat_system_prompt" class="a-textarea" rows="14" placeholder="You are the AI assistant for this portfolio..."></textarea></div>
+            <div id="ai-summary" role="alert" style="display:none;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.4);color:#fca5a5;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px;"></div>
+            <div id="ai-legacy" style="display:none;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);color:#fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px;line-height:1.6;">No provider is saved here yet. The assistant is currently using the older Groq setting from your server configuration. Save a provider below to take over.</div>
+
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;">
+              <div><div style="font-size:13px;font-weight:600;color:#e8edf8;">Chat on the public site</div><div style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-top:2px;">Turn this off to hide the assistant and show your off message instead.</div></div>
+              <label class="toggle-switch"><input type="checkbox" id="ai-enabled"><span class="toggle-slider"></span></label>
+            </div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Provider</div>
+            <div class="a-group"><label class="a-label" for="ai-preset">Provider preset</label>
+              <select id="ai-preset" class="a-input" style="appearance:none;">
+                <option value="">Choose a preset</option>
+                <option value="https://api.openai.com/v1">OpenAI</option>
+                <option value="https://generativelanguage.googleapis.com/v1beta/openai">Google Gemini</option>
+                <option value="https://api.groq.com/openai/v1">Groq</option>
+                <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+                <option value="https://api.together.xyz/v1">Together</option>
+                <option value="https://api.mistral.ai/v1">Mistral</option>
+                <option value="https://api.deepseek.com/v1">DeepSeek</option>
+                <option value="custom">Custom</option>
+              </select>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">Any service that follows the OpenAI chat format works. Picking a preset fills in the Base URL for you.</p></div>
+            <div class="a-group"><label class="a-label" for="ai-base_url">Base URL</label><input id="ai-base_url" class="a-input" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false"><div class="ai-err" data-for="ai_base_url" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">It must start with https:// and usually ends in /v1.</p></div>
+            <div class="a-group"><label class="a-label" for="ai-api_key">API key</label>
+              <div id="ai-key-saved" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
+                <code id="ai-key-hint" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:#e8edf8;"></code>
+                <button type="button" class="btn-a-ghost" id="ai-key-replace">Replace key</button>
+                <button type="button" class="btn-a-ghost" id="ai-key-clear">Remove key</button>
+              </div>
+              <input id="ai-api_key" type="password" class="a-input" placeholder="Paste your API key" autocomplete="new-password" spellcheck="false">
+              <div class="ai-err" data-for="ai_api_key" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;" id="ai-key-help">The key is stored encrypted on your server and is never shown again after you save it.</p></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+              <button type="button" class="btn-a-ghost" id="ai-load-models">Load models</button>
+              <span id="ai-models-status" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;"></span>
+            </div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Model</div>
+            <div class="a-group"><label class="a-label" for="ai-model-search">Search models</label><input id="ai-model-search" class="a-input" placeholder="Type to filter the list" autocomplete="off"></div>
+            <div class="a-group"><label class="a-label" for="ai-model">Model</label><select id="ai-model" class="a-input" style="appearance:none;"><option value="">Load models to choose one</option></select><div class="ai-err" data-for="ai_model" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">If your provider does not list models, load them anyway or pick a preset, then choose from the list.</p></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+              <button type="button" class="btn-a-ghost" id="ai-test">Test connection</button>
+              <span id="ai-test-result" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;"></span>
+            </div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Behaviour</div>
+            <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-bottom:10px;margin-top:0;">Write this as if briefing an assistant. Tell it who you are, what you build, your pricing range, what you do not do, and how to respond to visitors. Your projects, tools and templates are shared with the assistant automatically.</p>
+            <div class="a-group"><label class="a-label" for="ai-system_prompt">System prompt</label><textarea id="ai-system_prompt" class="a-textarea" rows="12"></textarea><div class="ai-err" data-for="ai_system_prompt" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <div style="margin-top:8px;"><button type="button" class="btn-a-ghost" id="ai-prompt-reset">Restore default prompt</button></div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div class="a-group"><label class="a-label" for="ai-temperature">Creativity <span style="font-size:10px;opacity:.5">(0 to 1.5)</span></label><input type="number" step="0.1" min="0" max="1.5" id="ai-temperature" class="a-input"><div class="ai-err" data-for="ai_temperature" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+              <div class="a-group"><label class="a-label" for="ai-max_tokens">Reply length <span style="font-size:10px;opacity:.5">(50 to 1000)</span></label><input type="number" step="10" min="50" max="1000" id="ai-max_tokens" class="a-input"><div class="ai-err" data-for="ai_max_tokens" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+              <div class="a-group"><label class="a-label" for="ai-daily_cap">Daily limit <span style="font-size:10px;opacity:.5">(per visitor, 0 = none)</span></label><input type="number" step="1" min="0" max="500" id="ai-daily_cap" class="a-input"><div class="ai-err" data-for="ai_daily_cap" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+            </div>
+            <div class="a-group"><label class="a-label" for="ai-off_message">Message when chat is off or the limit is reached</label><textarea id="ai-off_message" class="a-textarea" rows="2" maxlength="300"></textarea><div class="ai-err" data-for="ai_off_message" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What visitors see</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="a-group"><label class="a-label" for="ai-name">Assistant name</label><input id="ai-name" class="a-input" maxlength="40"><div class="ai-err" data-for="ai_name" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+              <div class="a-group"><label class="a-label" for="ai-launcher_label">Launcher label</label><input id="ai-launcher_label" class="a-input" maxlength="40"><div class="ai-err" data-for="ai_launcher_label" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+            </div>
+            <div class="a-group"><label class="a-label" for="ai-greeting">Greeting</label><textarea id="ai-greeting" class="a-textarea" rows="3" maxlength="400"></textarea><div class="ai-err" data-for="ai_greeting" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+            <div class="a-group"><label class="a-label" for="ai-suggestions">Suggested questions <span style="font-size:10px;opacity:.5">(one per line, up to 6)</span></label><textarea id="ai-suggestions" class="a-textarea" rows="4"></textarea><div class="ai-err" data-for="ai_suggestions" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+            <div class="a-group"><label class="a-label" for="ai-disclaimer">Disclaimer line</label><input id="ai-disclaimer" class="a-input" maxlength="200"><div class="ai-err" data-for="ai_disclaimer" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
           </div>
 
           <!-- NOTIFICATIONS -->
