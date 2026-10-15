@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getPool } = require('../db/init');
+const { pickPublic } = require('../lib/settingsPolicy');
 
 router.post('/pageview', async (req, res) => {
   try {
@@ -17,14 +18,13 @@ router.get('/profile', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// All settings are public — frontend filters what it needs
+// Only an explicit allowlist of keys is public (see lib/settingsPolicy.js).
+// Internal keys, the AI settings and the webhook URL are never returned here.
 router.get('/settings', async (req, res) => {
   try {
     const { rows } = await getPool().query('SELECT key, value FROM site_settings ORDER BY key');
-    const s = {};
-    rows.forEach(r => s[r.key] = r.value);
-    res.json(s);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    res.json(pickPublic(rows));
+  } catch (err) { res.status(500).json({ error: 'Could not load settings.' }); }
 });
 
 router.get('/repos', async (req, res) => {

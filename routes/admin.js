@@ -2,8 +2,14 @@ const express = require('express');
 const router = express.Router();
 const adminAuth = require('../middleware/adminAuth');
 const { getPool } = require('../db/init');
+const { isInternalKey, isWriteProtectedKey, normaliseHex } = require('../lib/settingsPolicy');
+const aiConfig = require('../lib/aiConfig');
+const adminAiRoutes = require('./adminAi');
 
 router.use(adminAuth);
+
+// AI provider settings (own validated routes)
+router.use('/ai', adminAiRoutes);
 
 // ─── PROFILE ──────────────────────────────────────────────────────────────────
 router.get('/profile', async (req, res) => {
@@ -24,18 +30,40 @@ router.put('/profile', async (req, res) => {
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
 router.get('/settings', async (req, res) => {
-  const { rows } = await getPool().query('SELECT key, value FROM site_settings ORDER BY key');
-  const s = {}; rows.forEach(r => s[r.key] = r.value);
-  res.json(s);
+  try {
+    const { rows } = await getPool().query('SELECT key, value FROM site_settings ORDER BY key');
+    const s = {};
+    rows.forEach(r => { if (!isInternalKey(r.key) && r.key !== 'ai_api_key_enc') s[r.key] = r.value; });
+    // Never return the stored key, only a masked hint and a flag.
+    const view = await aiConfig.getAdminView();
+    s.ai_api_key_set = view.ai_api_key_set;
+    s.ai_api_key_hint = view.ai_api_key_hint;
+    res.json(s);
+  } catch (err) { res.status(500).json({ error: 'Could not load settings.' }); }
 });
 
 router.put('/settings', async (req, res) => {
   try {
-    for (const [k, v] of Object.entries(req.body)) {
-      await getPool().query('INSERT INTO site_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2,updated_at=NOW()', [k, v ?? '']);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const skipped = [];
+    const updates = [];
+    for (const [k, v] of Object.entries(body)) {
+      // Internal keys and every ai_ key are never written here. AI settings use /api/admin/ai.
+      if (isWriteProtectedKey(k)) { skipped.push(k); continue; }
+      let value = v ?? '';
+      if (k === 'accent_color') {
+        if (value === '') value = '#0b7285';
+        const hex = normaliseHex(String(value));
+        if (!hex) return res.status(400).json({ error: 'Accent colour must be a hex value such as #0b7285.' });
+        value = hex;
+      }
+      updates.push([k, value]);
+    }
+    for (const [k, value] of updates) {
+      await getPool().query('INSERT INTO site_settings (key,value,updated_at) VALUES ($1,$2,NOW()) ON CONFLICT (key) DO UPDATE SET value=$2,updated_at=NOW()', [k, value]);
     }
     res.json({ ok: true });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { res.status(500).json({ error: 'Could not save settings.' }); }
 });
 
 // ─── REPOS ────────────────────────────────────────────────────────────────────
