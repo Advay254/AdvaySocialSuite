@@ -74,11 +74,11 @@ const ChatWidget = (() => {
     const label = UI.text(cfg.launcher_label || '');
     root.innerHTML = `
       <button type="button" class="cw-launcher" id="cw-launcher" aria-expanded="false" aria-controls="cw-window" ${label ? `title="${label}"` : ''} aria-label="${label || name || S.tabChat}">
-        ${UI.icon('chat')}${label ? `<span class="cw-launcher__label">${label}</span>` : ''}
+        ${UI.chatMark(36)}${label ? `<span class="cw-launcher__label">${label}</span>` : ''}
       </button>
       <div class="cw-window hidden" id="cw-window" role="dialog" aria-modal="true" aria-label="${name || S.tabChat}">
         <div class="cw-head">
-          <div class="cw-avatar" aria-hidden="true">${UI.text((cfg.name || '?').charAt(0).toUpperCase())}<span class="dot ${cfg.enabled ? '' : 'dot--off'}" id="cw-dot"></span></div>
+          <div class="cw-avatar" aria-hidden="true">${UI.chatMark(28)}<span class="dot ${cfg.enabled ? '' : 'dot--off'}" id="cw-dot"></span></div>
           <div class="cw-title"><strong>${name}</strong><span>${owner ? `${S.about} ${UI.text(owner)}` : ''}</span></div>
           <button type="button" class="icon-btn" id="cw-new" aria-label="${S.newChat}" title="${S.newChat}">${UI.icon('compose')}</button>
           <button type="button" class="icon-btn" id="cw-close" aria-label="${S.close}" title="${S.close}">${UI.icon('x')}</button>

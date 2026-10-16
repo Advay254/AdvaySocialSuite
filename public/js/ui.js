@@ -63,6 +63,24 @@ const UI = (() => {
     return `<svg class="icon"${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${P[name] || P.grid}</svg>`;
   }
 
+  // ─── Chat mark: friendly speech bubble used by the chat launcher and header ──
+  let markN = 0;
+  function chatMark(size) {
+    const id = 'cm' + (++markN);
+    const body = 'M31 6C17.5 6 7 16 7 29C7 41.5 17 51 30 51C33 51 35.5 50.5 38 49.5L45.5 57.5C47 59 49 58 49 56.5L48.6 45.4C54 41 57 35.5 57 29C57 16 46 6 31 6Z';
+    return `<svg class="chat-mark" width="${size || 36}" height="${size || 36}" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="${id}a" x1="8" y1="8" x2="56" y2="52" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffd60a"/><stop offset=".42" stop-color="#ff9f1c"/><stop offset=".78" stop-color="#ff5fa8"/><stop offset="1" stop-color="#d36bff"/></linearGradient>
+        <radialGradient id="${id}b" cx="22" cy="48" r="26" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".98"/><stop offset=".55" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+        <radialGradient id="${id}c" cx="52" cy="54" r="18" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#00d4ff"/><stop offset="1" stop-color="#00d4ff" stop-opacity="0"/></radialGradient>
+      </defs>
+      <path d="${body}" fill="url(#${id}a)"/><path d="${body}" fill="url(#${id}b)"/><path d="${body}" fill="url(#${id}c)"/>
+      <path class="chat-mark__line" d="${body}" fill="none" stroke-width="4.6" stroke-linejoin="round"/>
+      <g class="chat-mark__eyes"><ellipse class="chat-mark__ink" cx="25" cy="25" rx="3.3" ry="6.3"/><ellipse class="chat-mark__ink" cx="38" cy="25" rx="3.3" ry="6.3"/></g>
+      <path class="chat-mark__line" d="M19.5 37Q31 44.5 43.5 36.5" fill="none" stroke-width="3.6" stroke-linecap="round"/>
+    </svg>`;
+  }
+
   // Filled brand marks, used for the links in Profile.
   const SOCIALS = [
     { key: 'github_url', label: 'GitHub', path: 'M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.929.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z' },
@@ -219,5 +237,5 @@ const UI = (() => {
     return tpl.innerHTML;
   }
 
-  return { sanitizeHtml, stripEmoji, esc, text, safeUrl, hostOf, parseJSON, icon, socialLinks, categoryIcon, serviceIcon, computeAccent, applyAccent, theme, toast, reveal, skeletonCards, emptyState, errorState };
+  return { chatMark, sanitizeHtml, stripEmoji, esc, text, safeUrl, hostOf, parseJSON, icon, socialLinks, categoryIcon, serviceIcon, computeAccent, applyAccent, theme, toast, reveal, skeletonCards, emptyState, errorState };
 })();
