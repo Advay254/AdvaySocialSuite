@@ -100,7 +100,13 @@ Notes:
 
 ## Appearance
 
-Visitors can choose System, Light or Dark. The accent colour is set in Settings, General. Text colour on buttons and the light and dark variants are calculated automatically so they stay readable.
+The public site has one warm light look with black bands, there is no theme switch. The accent colour is set in Settings, General. Text colour on buttons, a darker accent for text on cream and a lighter accent for text on black are calculated automatically, so any colour stays readable.
+
+Fonts are self hosted from `public/fonts` (see THIRD-PARTY-NOTICES.md).
+
+## Reply length
+
+In Settings, AI Chat, set Maximum reply length (characters) from 200 to 3000. The assistant is told the limit and writes to fit it. If a reply still runs long it is shortened on the server to the last complete sentence, so a visitor never sees a half finished answer.
 
 ## ☁️ Deploying to Production
 
