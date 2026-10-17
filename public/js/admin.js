@@ -3,8 +3,17 @@ const Admin = (() => {
   let token = '';
   let unsavedChanges = false;
 
-  function markDirty() { unsavedChanges = true; }
-  function markClean() { unsavedChanges = false; }
+  function markDirty() { unsavedChanges = true; updateSaveBar(); }
+  function markClean() { unsavedChanges = false; updateSaveBar(); }
+  // Settings screen action bar: keeps the indicator and the Discard button in step with unsaved changes.
+  function updateSaveBar(note) {
+    const state = document.getElementById('save-state');
+    if (!state) return;
+    state.textContent = note || (unsavedChanges ? 'You have unsaved changes' : 'All changes saved');
+    state.classList.toggle('is-dirty', unsavedChanges && !note);
+    const d = document.getElementById('settings-discard');
+    if (d) d.disabled = !unsavedChanges;
+  }
   window.addEventListener('beforeunload', e => { if (unsavedChanges) { e.preventDefault(); e.returnValue = ''; } });
 
   async function login() {
@@ -318,23 +327,38 @@ const Admin = (() => {
   }
 
   async function saveSettings() {
+    const saveBtn = document.getElementById('settings-save');
+    if (saveBtn && saveBtn.disabled) return;
     const updates = {};
     SETTING_KEYS.forEach(k=>{ updates[k]=gv(`s-${k}`); });
     clearErrors();
-    // The AI settings are validated on their own route. Save them first so a mistake there stops everything.
-    if (aiLoaded) {
-      const ok = await saveAi();
-      if (!ok) return;
-    }
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving'; }
     try {
+      // The AI settings are validated on their own route. Save them first so a mistake there stops everything.
+      if (aiLoaded) {
+        const ok = await saveAi();
+        if (!ok) return;
+      }
       await api('/api/admin/settings',{method:'PUT',body:updates});
       toast('Settings saved!'); markClean();
-      const msg = document.getElementById('settings-msg');
-      msg.classList.remove('hidden'); setTimeout(()=>msg.classList.add('hidden'),3000);
+      updateSaveBar('Saved just now');
+      setTimeout(()=>updateSaveBar(), 3000);
     } catch (err) {
       showFieldError('accent_color', err.message);
       toast(err.message, false);
+    } finally {
+      if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Settings'; }
     }
+  }
+
+  // Throws away unsaved edits by loading the saved values again.
+  async function discardSettings() {
+    if (!unsavedChanges) return;
+    if (!confirm('Discard your unsaved changes and go back to the saved settings?')) return;
+    clearErrors();
+    await loadSettings();
+    markClean();
+    toast('Changes discarded');
   }
 
   // ─── Accent colour field ───────────────────────────────────────────────────
@@ -352,7 +376,7 @@ const Admin = (() => {
   }
 
   // ─── AI Chat settings ──────────────────────────────────────────────────────
-  const AI_TEXT = ['system_prompt','temperature','max_tokens','daily_cap','off_message','name','launcher_label','greeting','suggestions','disclaimer'];
+  const AI_TEXT = ['system_prompt','temperature','max_chars','daily_cap','off_message','name','launcher_label','greeting','suggestions','disclaimer'];
   let aiLoaded = false, aiState = { keySet:false, savedUrl:'', defaultPrompt:'', clearKey:false, models:[] };
 
   function $(id) { return document.getElementById(id); }
@@ -423,6 +447,13 @@ const Admin = (() => {
       if (!list.length) sel.add(new Option('No models match your search', ''));
     }
     if (current && list.includes(current)) sel.value = current;
+    showFullModel();
+  }
+  // The closed dropdown may shorten long names. The full chosen name is always written out below it.
+  function showFullModel() {
+    const el = $('ai-model-full'); if (!el) return;
+    const v = $('ai-model').value;
+    el.textContent = v ? 'Selected model: ' + v : '';
   }
 
   async function loadAi() {
@@ -449,6 +480,7 @@ const Admin = (() => {
     });
     $('ai-base_url').addEventListener('input', () => { syncPreset(); showFieldError('ai_base_url',''); });
     $('ai-model-search').addEventListener('input', () => renderModelOptions());
+    $('ai-model').addEventListener('change', showFullModel);
 
     $('ai-key-replace').addEventListener('click', () => {
       $('ai-key-saved').style.display = 'none'; const k = $('ai-api_key'); k.style.display = ''; k.focus(); aiState.clearKey = false; markDirty();
@@ -615,5 +647,5 @@ const Admin = (() => {
     document.getElementById(id)?.addEventListener('click', function(e) { if(e.target===this) closeModal(id); });
   });
 
-  return { login, logout, goTo, saveProfile, loadProfile, openRepoModal, saveRepo, deleteRepo, openToolModal, saveTool, deleteTool, openTemplateModal, saveTemplate, deleteTemplate, loadTemplates, saveSettings, loadSettings, loadCollabs, markCollabRead, deleteCollab, loadSuggestions, markSuggestRead, deleteSuggest, closeModal, switchTab, openSidebar, closeSidebar };
+  return { login, logout, goTo, saveProfile, loadProfile, openRepoModal, saveRepo, deleteRepo, openToolModal, saveTool, deleteTool, openTemplateModal, saveTemplate, deleteTemplate, loadTemplates, saveSettings, discardSettings, loadSettings, loadCollabs, markCollabRead, deleteCollab, loadSuggestions, markSuggestRead, deleteSuggest, closeModal, switchTab, openSidebar, closeSidebar };
 })();

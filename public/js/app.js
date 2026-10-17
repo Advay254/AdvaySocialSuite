@@ -1,4 +1,4 @@
-/* AdvaySocialSuite 1.0.0 SPA core: routing, data cache, navbar, drawer, footer. */
+/* AdvaySocialSuite 1.0.1 SPA core: routing, data cache, floating navbar, drawer, footer. */
 const App = (() => {
 
   let currentPage = null;
@@ -116,16 +116,8 @@ const App = (() => {
   }
 
   function initNavbar() {
-    const header = document.getElementById('site-header');
-    const onScroll = () => header.classList.toggle('is-scrolled', window.scrollY > 8);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-
     document.getElementById('menu-btn').innerHTML = UI.icon('menu', 22);
     document.getElementById('drawer-close').innerHTML = UI.icon('x', 22);
-    document.getElementById('theme-slot').innerHTML = UI.theme.switchHtml();
-    document.getElementById('drawer-theme-slot').innerHTML = UI.theme.switchHtml();
-    UI.theme.apply(UI.theme.get());
 
     document.getElementById('menu-btn').addEventListener('click', () => {
       document.getElementById('drawer').classList.contains('is-open') ? closeDrawer() : openDrawer();
@@ -158,71 +150,72 @@ const App = (() => {
     });
   }
 
+  // A call to action link may be a route inside the site (#/collab) or a full https address.
+  function resolveLink(value) {
+    const v = String(value || '').trim();
+    if (/^#\/[a-z]*$/i.test(v)) return { href: v, external: false };
+    const u = UI.safeUrl(v);
+    return u ? { href: u, external: true } : null;
+  }
+
   async function renderChrome() {
     const { settings, profile } = await shared();
 
     if (settings.accent_color) UI.applyAccent(settings.accent_color);
 
-    // Brand
+    // Brand and labels
     const display = UI.stripEmoji(profile.name || settings.site_name || '');
-    document.getElementById('brand-name').textContent = display;
-    const mark = document.getElementById('brand-mark');
-    const avatar = UI.safeUrl(profile.avatar_url);
-    const initial = (display.charAt(0) || '').toUpperCase();
-    mark.textContent = initial;
-    if (avatar) {
-      const img = new Image();
-      img.alt = '';
-      img.onload = () => { mark.textContent = ''; mark.appendChild(img); };
-      img.src = avatar;
-    }
-
-    // Labels come from settings
+    document.getElementById('brand').textContent = display;
+    document.getElementById('drawer-brand').textContent = display;
     document.querySelectorAll('[data-label]').forEach(el => { el.textContent = UI.stripEmoji(settings[el.dataset.label] || ''); });
 
-    // Support link comes from Profile and is hidden when empty
+    // One pill button on the right of the bar. Label and link come from settings.
+    const cta = resolveLink(settings.nav_cta_link);
+    const ctaLabel = settings.nav_cta_label;
+    const ctaHtml = cta && ctaLabel ? UI.btn({ label: ctaLabel, href: cta.href, external: cta.external, size: 'sm' }) : '';
+    document.getElementById('nav-cta').innerHTML = ctaHtml;
+
+    // Drawer footer: the same button plus the support link when the profile has one
     const support = UI.safeUrl(profile.bmc_url);
-    const label = UI.stripEmoji(settings.support_label || '');
-    ['support-btn', 'drawer-support'].forEach(id => {
-      const a = document.getElementById(id);
-      if (!a) return;
-      if (support && label) { a.href = support; a.textContent = label; a.classList.remove('hidden'); } else a.classList.add('hidden');
-    });
+    const supportLabel = settings.support_label;
+    document.getElementById('drawer-foot').innerHTML =
+      (cta && ctaLabel ? UI.btn({ label: ctaLabel, href: cta.href, external: cta.external, block: true }) : '') +
+      (support && supportLabel ? UI.btn({ label: supportLabel, href: support, external: true, variant: 'secondary', block: true, icon: 'arrow-up-right' }) : '');
 
     renderFooter(settings, profile, support);
+    updateNav(currentPage);
   }
 
   function renderFooter(settings, profile, support) {
     const foot = document.getElementById('site-footer');
-    const site = UI.text(settings.site_name || profile.name || '');
+    const site = UI.text(profile.name || settings.site_name || '');
     const links = [['#/', 'nav_home'], ['#/about', 'nav_about'], ['#/repos', 'nav_repos'], ['#/tools', 'nav_tools'], ['#/templates', 'templates_label'], ['#/collab', 'nav_collab']]
       .map(([href, key]) => settings[key] ? `<li><a href="${href}">${UI.text(settings[key])}</a></li>` : '').join('');
     const socials = [['github_url', 'GitHub'], ['linkedin_url', 'LinkedIn'], ['twitter_url', 'X'], ['youtube_url', 'YouTube'], ['discord_url', 'Discord'], ['tiktok_url', 'TikTok']]
       .map(([k, name]) => { const u = UI.safeUrl(profile[k]); return u ? `<li><a href="${UI.esc(u)}" target="_blank" rel="noopener noreferrer">${name}</a></li>` : ''; }).join('');
     const supportCol = support && settings.support_label ? `
       <div>
-        <h2 class="footer__title">${UI.text(settings.footer_support_heading)}</h2>
-        <p class="footer__about" style="margin-bottom:var(--space-3)">${UI.text(settings.footer_support_text)}</p>
-        <a class="btn btn--secondary btn--sm" href="${UI.esc(support)}" target="_blank" rel="noopener noreferrer">${UI.text(settings.support_label)} ${UI.icon('arrow-up-right')}</a>
+        <h2 class="label footer__title">${UI.text(settings.footer_support_heading)}</h2>
+        <ul class="footer__list"><li><a href="${UI.esc(support)}" target="_blank" rel="noopener noreferrer">${UI.text(settings.support_label)}</a></li></ul>
       </div>` : '<div></div>';
 
     foot.innerHTML = `
       <div class="container">
         <div class="footer__grid">
           <div>
-            <strong>${site}</strong>
-            ${settings.site_tagline ? `<p class="footer__about" style="margin-top:var(--space-2)">${UI.text(settings.site_tagline)}</p>` : ''}
+            <div class="footer__brand">${site}</div>
+            ${settings.site_tagline ? `<p class="footer__about">${UI.text(settings.site_tagline)}</p>` : ''}
           </div>
           <div>
-            <h2 class="footer__title">${UI.text(settings.footer_nav_heading)}</h2>
+            <h2 class="label footer__title">${UI.text(settings.footer_nav_heading)}</h2>
             <ul class="footer__list">${links}</ul>
           </div>
           <div>
-            ${socials ? `<h2 class="footer__title">${UI.text(settings.footer_connect_heading)}</h2><ul class="footer__list">${socials}</ul>` : ''}
+            ${socials ? `<h2 class="label footer__title">${UI.text(settings.footer_connect_heading)}</h2><ul class="footer__list">${socials}</ul>` : ''}
           </div>
           ${supportCol}
         </div>
-        <div class="footer__base"><span>\u00A9 ${new Date().getFullYear()} ${site}</span></div>
+        <div class="footer__base">\u00A9 ${new Date().getFullYear()} ${site}</div>
       </div>`;
   }
 

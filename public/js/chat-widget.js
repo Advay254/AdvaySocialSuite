@@ -1,4 +1,4 @@
-/* AdvaySocialSuite 1.0.0 chat widget: assistant chat plus suggestion box. */
+/* AdvaySocialSuite 1.0.1 chat widget: assistant chat plus suggestion box. */
 const ChatWidget = (() => {
 
   // Functional interface wording that is not content. Everything the owner can edit comes from settings.
@@ -74,11 +74,11 @@ const ChatWidget = (() => {
     const label = UI.text(cfg.launcher_label || '');
     root.innerHTML = `
       <button type="button" class="cw-launcher" id="cw-launcher" aria-expanded="false" aria-controls="cw-window" ${label ? `title="${label}"` : ''} aria-label="${label || name || S.tabChat}">
-        ${UI.chatMark(36)}${label ? `<span class="cw-launcher__label">${label}</span>` : ''}
+        <span class="cw-launcher__disc">${UI.chatMark(34)}</span>${label ? `<span class="cw-launcher__label">${label}</span>` : ''}
       </button>
       <div class="cw-window hidden" id="cw-window" role="dialog" aria-modal="true" aria-label="${name || S.tabChat}">
         <div class="cw-head">
-          <div class="cw-avatar" aria-hidden="true">${UI.chatMark(28)}<span class="dot ${cfg.enabled ? '' : 'dot--off'}" id="cw-dot"></span></div>
+          <div class="cw-avatar" aria-hidden="true">${UI.chatMark(28)}</div>
           <div class="cw-title"><strong>${name}</strong><span>${owner ? `${S.about} ${UI.text(owner)}` : ''}</span></div>
           <button type="button" class="icon-btn" id="cw-new" aria-label="${S.newChat}" title="${S.newChat}">${UI.icon('compose')}</button>
           <button type="button" class="icon-btn" id="cw-close" aria-label="${S.close}" title="${S.close}">${UI.icon('x')}</button>
@@ -108,7 +108,7 @@ const ChatWidget = (() => {
         </div>
       </div>`;
 
-    ['launcher', 'window', 'list', 'chips', 'input', 'send', 'count', 'new', 'close', 'dot'].forEach(k => { els[k] = document.getElementById('cw-' + k); });
+    ['launcher', 'window', 'list', 'chips', 'input', 'send', 'count', 'new', 'close'].forEach(k => { els[k] = document.getElementById('cw-' + k); });
     bind();
     renderAll();
   }
@@ -214,7 +214,6 @@ const ChatWidget = (() => {
 
     const off = !cfg.enabled || blocked;
     els.input.disabled = off;
-    els.dot.classList.toggle('dot--off', off);
     updateSend();
     scrollDown();
   }
@@ -249,6 +248,8 @@ const ChatWidget = (() => {
       busy = false;
       if (res.ok && data.reply) {
         messages.push({ role: 'assistant', content: data.reply, ts: Date.now() });
+      } else if (data.code === 'empty') {
+        messages.push({ role: 'assistant', content: data.error || S.error, ts: Date.now(), error: true });
       } else if (data.code === 'off' || data.code === 'limit') {
         cfg.off_message = data.error || cfg.off_message;
         if (data.code === 'off') cfg.enabled = false; else blocked = true;

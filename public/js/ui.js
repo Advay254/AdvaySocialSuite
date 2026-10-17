@@ -1,4 +1,4 @@
-/* AdvaySocialSuite 1.0.0 shared UI helpers: text safety, icons, theme, accent, toast, reveal, states. */
+/* AdvaySocialSuite 1.0.1 shared UI helpers: text safety, icons, accent colour, buttons, toast, reveal, states. */
 const UI = (() => {
 
   // ─── Text safety ─────────────────────────────────────────────────────────────
@@ -105,6 +105,10 @@ const UI = (() => {
   function serviceIcon(i) { return icon(SERVICE_ICONS[i % SERVICE_ICONS.length]); }
 
   // ─── Accent colour ───────────────────────────────────────────────────────────
+  // The owner can pick any colour. Everything readable is calculated from it:
+  // text on an accent fill, a dark accent for text on cream, a tint, and a light accent for text on black.
+  const DEFAULT_ACCENT = '#b98b6e';
+  const INK = [22, 22, 22], CREAM = [255, 253, 249], CONTAINER = [238, 232, 223];
   function hexToRgb(hex) {
     const h = String(hex).replace('#', '');
     return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
@@ -116,23 +120,48 @@ const UI = (() => {
   }
   function contrast(a, b) { const l1 = lum(a), l2 = lum(b); return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05); }
   function mix(a, b, t) { return a.map((v, i) => v + (b[i] - v) * t); }
-  // Move colour toward `target` until it reaches AA contrast (4.5) against `bg`.
-  function fitContrast(color, target, bg) {
-    let c = color;
-    for (let i = 0; i <= 20 && contrast(c, bg) < 4.5; i++) c = mix(color, target, (i + 1) / 20);
-    return c;
+  function toHsl(c) {
+    const r = c[0] / 255, g = c[1] / 255, b = c[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+    if (mx === mn) return [0, 0, l];
+    const d = mx - mn, s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    const h = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return [h / 6, s, l];
+  }
+  function fromHsl(h, s, l) {
+    if (s === 0) return [l * 255, l * 255, l * 255];
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    const f = t => { t = (t + 1) % 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+    return [f(h + 1 / 3) * 255, f(h) * 255, f(h - 1 / 3) * 255];
   }
   const HEX_RE = /^#[0-9a-fA-F]{6}$/;
   function computeAccent(hex) {
     if (!HEX_RE.test(String(hex || ''))) return null;
     const a = hexToRgb(hex);
-    const onAccent = contrast(a, [255, 255, 255]) >= contrast(a, [0, 0, 0]) ? '#ffffff' : '#000000';
-    return {
-      a: rgbToHex(a),
-      o: onAccent,
-      l: rgbToHex(fitContrast(a, [0, 0, 0], hexToRgb('#f0f2f5'))),
-      d: rgbToHex(fitContrast(a, [255, 255, 255], hexToRgb('#1a2027'))),
-    };
+    const isDefault = hex.toLowerCase() === DEFAULT_ACCENT;
+    const cInk = contrast(a, INK), cCream = contrast(a, CREAM);
+    const onAccent = cInk >= cCream ? '#161616' : '#fffdf9';
+    // A mid tone can fail 4.5 to 1 with both black and cream. Nudge the fill just enough so the text on it stays readable.
+    let fill = a;
+    if (Math.max(cInk, cCream) < 4.5) {
+      const textRgb = cInk >= cCream ? INK : CREAM, away = cInk >= cCream ? CREAM : INK;
+      for (let i = 1; i <= 20 && contrast(fill, textRgb) < 4.5; i++) fill = mix(a, away, i / 20);
+    }
+    const tint = isDefault ? '#ead9cc' : rgbToHex(mix(a, CREAM, 0.7));
+    // Dark accent for text on cream, container and tint: 7 to 1 against the tint, so it passes everywhere.
+    let dark = isDefault ? '#4f3223' : null;
+    if (!dark) {
+      const [h, s] = toHsl(a);
+      const tintRgb = hexToRgb(tint);
+      for (let l = 0.26; l >= 0.04; l -= 0.01) {
+        const c = fromHsl(h, Math.max(s, 0.3), l);
+        dark = rgbToHex(c);
+        if (contrast(c, tintRgb) >= 7 && contrast(c, CONTAINER) >= 7) break;
+      }
+    }
+    // Accent for text and lines on black: lighten until 4.5 to 1.
+    let onInk = rgbToHex(a);
+    for (let i = 0; i <= 20 && contrast(hexToRgb(onInk), INK) < 4.5; i++) onInk = rgbToHex(mix(a, CREAM, (i + 1) / 20));
+    return { v: 2, a: rgbToHex(fill), o: onAccent, t: tint, d: dark, i: onInk };
   }
   function applyAccent(hex) {
     const c = computeAccent(hex);
@@ -140,35 +169,24 @@ const UI = (() => {
     const r = document.documentElement.style;
     r.setProperty('--accent', c.a);
     r.setProperty('--on-accent', c.o);
-    r.setProperty('--accent-fg-light', c.l);
-    r.setProperty('--accent-fg-dark', c.d);
-    try { localStorage.setItem('adv_accent', JSON.stringify(c)); } catch { /* storage blocked */ }
+    r.setProperty('--accent-tint', c.t);
+    r.setProperty('--accent-dark', c.d);
+    r.setProperty('--accent-on-ink', c.i);
+    try { localStorage.setItem('adv_accent2', JSON.stringify(c)); } catch { /* storage blocked */ }
   }
 
-  // ─── Theme: system, light, dark ──────────────────────────────────────────────
-  const theme = (() => {
-    const KEY = 'adv_theme';
-    function get() { try { const v = localStorage.getItem(KEY); return v === 'light' || v === 'dark' ? v : 'system'; } catch { return 'system'; } }
-    function apply(pref) {
-      const r = document.documentElement;
-      if (pref === 'light' || pref === 'dark') r.setAttribute('data-theme', pref); else r.removeAttribute('data-theme');
-      document.querySelectorAll('[data-theme-pref]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.themePref === pref)));
-    }
-    function set(pref) {
-      try { if (pref === 'system') localStorage.removeItem(KEY); else localStorage.setItem(KEY, pref); } catch { /* storage blocked */ }
-      apply(pref);
-    }
-    function switchHtml() {
-      const cur = get();
-      const b = (pref, ic, label) => `<button type="button" data-theme-pref="${pref}" aria-pressed="${cur === pref}" aria-label="${label}" title="${label}">${icon(ic)}</button>`;
-      return `<div class="theme-switch" role="group" aria-label="Theme">${b('system', 'monitor', 'System theme')}${b('light', 'sun', 'Light theme')}${b('dark', 'moon', 'Dark theme')}</div>`;
-    }
-    document.addEventListener('click', e => {
-      const btn = e.target.closest && e.target.closest('[data-theme-pref]');
-      if (btn) set(btn.dataset.themePref);
-    });
-    return { get, set, apply, switchHtml };
-  })();
+  // ─── Pill button with the rolling label ──────────────────────────────────────
+  // variants: primary, secondary, inverted, inverted-outline. `static` renders a span for use inside a link.
+  function btn(o) {
+    const label = text(o.label || '');
+    if (!label) return '';
+    const cls = ['btn', o.variant && o.variant !== 'primary' ? 'btn--' + o.variant : '', o.size === 'sm' ? 'btn--sm' : '', o.block ? 'btn--block' : ''].filter(Boolean).join(' ');
+    const inner = `<span class="btn__wrap"><span class="btn__text">${label}</span><span class="btn__text btn__text--hover" aria-hidden="true">${label}</span></span>${o.icon ? icon(o.icon) : ''}`;
+    const attrs = o.attrs ? ' ' + o.attrs : '';
+    if (o.static) return `<span class="${cls}"${attrs}>${inner}</span>`;
+    if (o.tag === 'button') return `<button type="${o.type || 'button'}" class="${cls}"${o.id ? ` id="${o.id}"` : ''}${attrs}>${inner}</button>`;
+    return `<a class="${cls}" href="${esc(o.href || '#')}"${o.external ? ' target="_blank" rel="noopener noreferrer"' : ''}${attrs}>${inner}</a>`;
+  }
 
   // ─── Toast (announced to screen readers) ─────────────────────────────────────
   let toastTimer = null;
@@ -237,5 +255,5 @@ const UI = (() => {
     return tpl.innerHTML;
   }
 
-  return { chatMark, sanitizeHtml, stripEmoji, esc, text, safeUrl, hostOf, parseJSON, icon, socialLinks, categoryIcon, serviceIcon, computeAccent, applyAccent, theme, toast, reveal, skeletonCards, emptyState, errorState };
+  return { chatMark, sanitizeHtml, stripEmoji, esc, text, safeUrl, hostOf, parseJSON, icon, socialLinks, categoryIcon, serviceIcon, computeAccent, applyAccent, btn, toast, reveal, skeletonCards, emptyState, errorState };
 })();
