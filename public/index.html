@@ -6,25 +6,20 @@
   <title>AdvaySocialSuite</title>
   <meta name="description" content="Portfolio and tools hub.">
   <script>
-    /* Runs before first paint so the saved theme and accent colour never flash. */
+    /* Runs before first paint so the saved accent colour never flashes. */
     (function () {
-      var r = document.documentElement;
       try {
-        var t = localStorage.getItem('adv_theme');
-        if (t === 'light' || t === 'dark') r.setAttribute('data-theme', t);
-        var a = JSON.parse(localStorage.getItem('adv_accent') || 'null');
-        if (a && a.a) {
-          r.style.setProperty('--accent', a.a);
-          r.style.setProperty('--on-accent', a.o);
-          r.style.setProperty('--accent-fg-light', a.l);
-          r.style.setProperty('--accent-fg-dark', a.d);
+        var a = JSON.parse(localStorage.getItem('adv_accent2') || 'null');
+        if (a && a.v === 2) {
+          var r = document.documentElement.style;
+          r.setProperty('--accent', a.a); r.setProperty('--on-accent', a.o);
+          r.setProperty('--accent-tint', a.t); r.setProperty('--accent-dark', a.d); r.setProperty('--accent-on-ink', a.i);
         }
       } catch (e) { /* storage blocked: defaults apply */ }
     })();
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="preload" href="/fonts/satoshi-700.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/satoshi-400.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js" defer></script>
 </head>
@@ -32,11 +27,8 @@
   <a href="#app" class="skip-link" id="skip-link">Skip to content</a>
 
   <header class="site-header" id="site-header">
-    <div class="container nav">
-      <a href="#/" class="brand" id="brand">
-        <span class="brand__mark" id="brand-mark" aria-hidden="true"></span>
-        <span class="brand__name" id="brand-name"></span>
-      </a>
+    <div class="nav">
+      <a href="#/" class="brand" id="brand"></a>
       <ul class="nav__links" id="nav-links">
         <li><a href="#/" class="nav__link" data-page="home" data-label="nav_home"></a></li>
         <li><a href="#/about" class="nav__link" data-page="about" data-label="nav_about"></a></li>
@@ -45,18 +37,15 @@
         <li><a href="#/templates" class="nav__link" data-page="templates" data-label="templates_label"></a></li>
         <li><a href="#/collab" class="nav__link" data-page="collab" data-label="nav_collab"></a></li>
       </ul>
-      <div class="nav__actions">
-        <span id="theme-slot"></span>
-        <a id="support-btn" class="btn btn--secondary btn--sm nav__support hidden" href="#" target="_blank" rel="noopener noreferrer"></a>
-        <button type="button" class="icon-btn nav__toggle" id="menu-btn" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"></button>
-      </div>
+      <span id="nav-cta" class="nav__cta"></span>
+      <button type="button" class="nav__toggle" id="menu-btn" aria-expanded="false" aria-controls="drawer" aria-label="Open menu"></button>
     </div>
   </header>
 
   <div class="drawer-backdrop" id="drawer-backdrop"></div>
   <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Menu">
     <div class="drawer__top">
-      <span id="drawer-theme-slot"></span>
+      <span class="brand" id="drawer-brand"></span>
       <button type="button" class="icon-btn" id="drawer-close" aria-label="Close menu"></button>
     </div>
     <ul class="drawer__links" id="drawer-links">
@@ -67,9 +56,7 @@
       <li><a href="#/templates" class="drawer__link" data-page="templates" data-label="templates_label"></a></li>
       <li><a href="#/collab" class="drawer__link" data-page="collab" data-label="nav_collab"></a></li>
     </ul>
-    <div class="drawer__foot">
-      <a id="drawer-support" class="btn btn--secondary hidden" href="#" target="_blank" rel="noopener noreferrer"></a>
-    </div>
+    <div class="drawer__foot" id="drawer-foot"></div>
   </aside>
 
   <main id="app" tabindex="-1"></main>
