@@ -136,7 +136,7 @@ const SEED_SETTINGS = [
 
 // Added in 1.0.0. Every value here is only ever inserted when the key does not exist yet.
 const SEED_SETTINGS_V1 = [
-  ['accent_color', '#0b7285'],
+  ['accent_color', '#b98b6e'],
   ['nav_home', 'Home'],
   ['nav_about', 'About'],
   ['nav_repos', 'Repos'],
@@ -165,6 +165,17 @@ const SEED_SETTINGS_V1 = [
   ['home_cta_button', 'Start a conversation'],
   ['home_stat_tools_label', 'Live tools'],
   ['home_stat_repos_label', 'Public repositories'],
+  ['home_stat_years_label', 'Years building'],
+  ['nav_cta_label', 'Work with me'],
+  ['nav_cta_link', '#/collab'],
+  ['home_about_kicker', 'About me'],
+  ['home_about_button', 'Read my story'],
+  ['tool_open_label', 'Open'],
+  ['collab_success_title', 'Message sent'],
+  ['collab_success_text', 'I will read it and reply by email within 24 hours.'],
+  ['status_live_label', 'Live'],
+  ['status_waking_label', 'Waking up'],
+  ['status_down_label', 'Down'],
   ...Object.entries(AI_DEFAULTS).filter(([k]) => k !== 'ai_system_prompt'),
 ];
 
@@ -217,6 +228,13 @@ async function initDB() {
     // The AI system prompt starts from whatever the owner already saved as chat_system_prompt.
     await db.query("INSERT INTO site_settings (key,value) SELECT 'ai_system_prompt', value FROM site_settings WHERE key='chat_system_prompt' AND COALESCE(value,'') <> '' ON CONFLICT (key) DO NOTHING");
     await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', ['ai_system_prompt', AI_DEFAULTS.ai_system_prompt]);
+    // 1.0.1: the reply length is now set in characters. Carry an old token value over (about three characters per token).
+    await db.query("INSERT INTO site_settings (key,value) SELECT 'ai_max_chars', LEAST(3000, GREATEST(200, CAST(value AS INTEGER) * 3))::text FROM site_settings WHERE key='ai_max_tokens' AND value ~ '^[0-9]{1,5}$' ON CONFLICT (key) DO NOTHING");
+    // 1.0.1: the accent default changed. Move only the untouched old default, once.
+    const accentMove = await db.query("INSERT INTO site_settings (key,value) VALUES ('_migrated_accent_101','1') ON CONFLICT (key) DO NOTHING RETURNING key");
+    if (accentMove.rowCount === 1) {
+      await db.query("UPDATE site_settings SET value='#b98b6e', updated_at=NOW() WHERE key='accent_color' AND value='#0b7285'");
+    }
     for (const [k, v] of SEED_SETTINGS_V1) {
       await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [k, v]);
     }
