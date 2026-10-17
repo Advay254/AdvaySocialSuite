@@ -6,8 +6,8 @@ const ReposPage = (() => {
     return `
       <div class="container">
         <div class="page-head">
-          <h1 id="repos-title"></h1>
-          <p>Public repositories and open source projects. Click any title to view on GitHub.</p>
+          <h1 class="display" id="repos-title"></h1>
+          <p class="lead">Public repositories and open source projects. Open any title to view it on GitHub.</p>
         </div>
         <div class="toolbar">
           <div class="search">
@@ -16,7 +16,7 @@ const ReposPage = (() => {
             <input type="search" id="repo-search" class="input" placeholder="Search repositories" autocomplete="off">
           </div>
         </div>
-        <div id="repos-list" class="stack" aria-live="polite" aria-busy="true">${UI.skeletonCards(3)}</div>
+        <div class="page-body"><div id="repos-list" class="repo-list" aria-live="polite" aria-busy="true">${UI.skeletonCards(3)}</div></div>
       </div>`;
   }
 
@@ -34,7 +34,7 @@ const ReposPage = (() => {
       });
     } catch {
       const list = document.getElementById('repos-list');
-      if (list) { list.removeAttribute('aria-busy'); list.innerHTML = UI.errorState('Could not load repositories.', '', 'Try again'); }
+      if (list) { list.removeAttribute('aria-busy'); list.innerHTML = UI.errorState('The repositories did not load.', 'Check your connection, then try again.', 'Try again'); }
     }
   }
 
@@ -42,7 +42,7 @@ const ReposPage = (() => {
     const list = document.getElementById('repos-list');
     if (!list) return;
     list.removeAttribute('aria-busy');
-    if (!repos.length) { list.innerHTML = UI.emptyState('No repositories found.'); return; }
+    if (!repos.length) { list.innerHTML = UI.emptyState('No repositories match your search.', 'Clear the search to see them all.'); return; }
 
     list.innerHTML = repos.map(repo => {
       const tags = UI.parseJSON(repo.tags, []);
@@ -52,7 +52,7 @@ const ReposPage = (() => {
       return `
         <article class="card repo" data-id="${Number(repo.id)}">
           ${url ? `<a class="repo__title" href="${UI.esc(url)}" target="_blank" rel="noopener noreferrer">${title}</a>` : `<span class="repo__title">${title}</span>`}
-          <p class="repo__desc">${UI.text(repo.description || 'No description provided.')}</p>
+          ${repo.description ? `<p class="repo__desc">${UI.text(repo.description)}</p>` : ''}
           ${tags.length ? `<div class="tags">${tags.map(t => `<span class="tag">${UI.text(t)}</span>`).join('')}</div>` : ''}
           ${hasReadme ? `
             <button type="button" class="readme-toggle" aria-expanded="false" aria-controls="readme-${Number(repo.id)}">

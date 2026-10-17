@@ -4,10 +4,10 @@ const AboutPage = (() => {
     return `
       <div class="container">
         <div class="page-head">
-          <h1 id="about-title"></h1>
-          <p id="about-subtitle"></p>
+          <h1 class="display" id="about-title"></h1>
+          <p class="lead" id="about-subtitle"></p>
         </div>
-        <div id="about-content" class="stack" aria-busy="true">${UI.skeletonCards(2)}</div>
+        <div id="about-content" class="page-body" aria-busy="true">${UI.skeletonCards(2)}</div>
       </div>`;
   }
 
@@ -17,72 +17,55 @@ const AboutPage = (() => {
       const { settings, profile } = await App.shared();
       if (!document.getElementById('about-content')) return;
 
-      const title = document.getElementById('about-title');
-      if (title) title.textContent = UI.stripEmoji(settings.nav_about || '');
-      const bio = UI.stripEmoji(profile.bio || '');
-      const subtitle = document.getElementById('about-subtitle');
-      if (subtitle) subtitle.textContent = bio ? bio.split('.')[0] + '.' : '';
+      document.getElementById('about-title').textContent = UI.stripEmoji(profile.name || settings.nav_about || '');
+      document.getElementById('about-subtitle').textContent = UI.stripEmoji(profile.tagline || '');
 
-      const skills = UI.parseJSON(profile.skills, []);
-      const principles = UI.parseJSON(profile.principles, []);
+      const bio = UI.stripEmoji(profile.bio || '');
+      const skills = UI.parseJSON(profile.skills, []).map(s => UI.stripEmoji(s)).filter(Boolean);
+      const principles = UI.parseJSON(profile.principles, []).map(s => UI.stripEmoji(s)).filter(Boolean);
       const specs = UI.parseJSON(settings.specializations, []).filter(s => s && s.title);
       const funfact = UI.stripEmoji(settings.funfact || '');
-      const name = UI.text(profile.name || '');
-      const avatar = UI.safeUrl(profile.avatar_url);
+      const initial = UI.text((profile.name || '').charAt(0).toUpperCase());
       const support = UI.safeUrl(profile.bmc_url);
       const socials = UI.socialLinks(profile);
 
       box.removeAttribute('aria-busy');
       box.innerHTML = `
-        <section class="card about-hero reveal">
-          <div class="avatar" id="about-avatar" aria-hidden="true">${UI.text((profile.name || '').charAt(0).toUpperCase())}</div>
-          <div>
-            <h2 class="h2">${name}</h2>
-            ${profile.tagline ? `<p class="hero__role" style="margin-top:var(--space-2)">${UI.text(profile.tagline)}</p>` : ''}
-            ${profile.location ? `<p class="muted" style="margin-top:var(--space-2)">${UI.icon('pin')} ${UI.text(profile.location)}</p>` : ''}
+        <section class="about-lead">
+          <div class="portrait reveal" style="max-width:420px">
+            <div class="frame frame--wide" data-avatar="${UI.esc(UI.safeUrl(profile.avatar_url))}" data-alt="${UI.esc(UI.stripEmoji(profile.name || ''))}">
+              <div class="monogram" aria-hidden="true"><span class="monogram__line"></span><span class="monogram__letter">${initial}</span></div>
+            </div>
           </div>
-          ${bio ? `<p class="lead" style="margin-top:0">${UI.text(bio)}</p>` : ''}
-          ${socials || (support && settings.support_label) ? `<div class="socials">${socials}${support && settings.support_label ? `<a class="btn btn--secondary btn--sm" href="${UI.esc(support)}" target="_blank" rel="noopener noreferrer">${UI.text(settings.support_label)}</a>` : ''}</div>` : ''}
+          <div class="stack-gap">
+            ${profile.location ? `<p class="muted reveal">${UI.icon('pin')} ${UI.text(profile.location)}</p>` : ''}
+            ${bio ? `<p class="lead body-text reveal" style="color:var(--ink)">${UI.esc(bio)}</p>` : ''}
+            ${socials || (support && settings.support_label) ? `<div class="row reveal"><div class="socials">${socials}</div>${support && settings.support_label ? UI.btn({ label: settings.support_label, href: support, external: true, variant: 'secondary', size: 'sm', icon: 'arrow-up-right' }) : ''}</div>` : ''}
+            ${funfact ? `<p class="fact reveal">${UI.esc(funfact)}</p>` : ''}
+          </div>
         </section>
 
-        <div class="grid grid--2">
-          ${specs.length ? `<section class="card reveal">
-            <span class="kicker">Specialization</span>
-            <h3 class="tile__title" style="margin-bottom:var(--space-4)">What I Build</h3>
-            <div class="stack">
-              ${specs.map((s, i) => `<div style="display:flex;gap:var(--space-3);align-items:flex-start">
-                <span class="tile__icon" style="flex-shrink:0">${UI.serviceIcon(i)}</span>
-                <div><h4>${UI.text(s.title)}</h4><p class="muted" style="font-size:var(--text-sm);margin-top:var(--space-1)">${UI.text(s.desc || '')}</p></div>
-              </div>`).join('')}
-            </div>
-          </section>` : ''}
+        ${specs.length ? `<section style="margin-top:clamp(3rem,6vw,5rem)">
+          <div class="section-head reveal"><h2 class="headline">${UI.text(settings.home_services_heading || '')}</h2></div>
+          <div>${specs.map((s, i) => `<div class="service-row reveal"><span class="icon-badge">${UI.serviceIcon(i)}</span><div><h3 class="title">${UI.text(s.title)}</h3><p>${UI.text(s.desc || '')}</p></div></div>`).join('')}</div>
+        </section>` : ''}
 
-          <div class="stack">
-            ${principles.length ? `<section class="card reveal">
-              <span class="kicker">Core Principles</span>
-              <h3 class="tile__title" style="margin-bottom:var(--space-4)">How I Work</h3>
-              <ul class="list-plain">${principles.map(p => `<li>${UI.icon('check')}<span>${UI.text(p)}</span></li>`).join('')}</ul>
-            </section>` : ''}
-            ${funfact ? `<section class="card reveal"><p class="fact">${UI.text(funfact)}</p></section>` : ''}
-          </div>
-        </div>
+        ${principles.length ? `<section style="margin-top:clamp(3rem,6vw,5rem)">
+          <ul class="checklist reveal" style="max-width:44rem">${principles.map(p => `<li>${UI.icon('check')}<span>${UI.esc(p)}</span></li>`).join('')}</ul>
+        </section>` : ''}
 
-        ${skills.length ? `<section class="card reveal">
-          <span class="kicker">Skills &amp; Stack</span>
-          <h3 class="tile__title" style="margin-bottom:var(--space-4)">Technology Arsenal</h3>
-          <div class="tags">${skills.map(s => `<span class="tag">${UI.text(s)}</span>`).join('')}</div>
-        </section>` : ''}`;
+        ${skills.length ? `<section style="margin-top:clamp(3rem,6vw,5rem)" class="reveal"><div class="tags">${skills.map(s => `<span class="tag">${UI.esc(s)}</span>`).join('')}</div></section>` : ''}`;
 
-      if (avatar) {
-        const img = new Image();
-        img.alt = profile.name ? UI.stripEmoji(profile.name) : '';
-        img.onload = () => { const a = document.getElementById('about-avatar'); if (a) { a.textContent = ''; a.removeAttribute('aria-hidden'); a.appendChild(img); } };
-        img.src = avatar;
-      }
+      box.querySelectorAll('.frame[data-avatar]').forEach(frame => {
+        const src = frame.dataset.avatar; if (!src) return;
+        const img = new Image(); img.alt = frame.dataset.alt || '';
+        img.onload = () => { frame.innerHTML = ''; frame.appendChild(img); };
+        img.src = src;
+      });
       UI.reveal(box);
     } catch (e) {
       console.error('About page error:', e);
-      if (box) box.innerHTML = UI.errorState('Could not load the profile.', '', 'Try again');
+      if (box) { box.removeAttribute('aria-busy'); box.innerHTML = UI.errorState('The profile did not load.', 'Check your connection, then try again.', 'Try again'); }
     }
   }
 
