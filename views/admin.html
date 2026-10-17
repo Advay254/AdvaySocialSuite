@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Admin · AdvaySocialSuite</title>
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -52,7 +52,7 @@
 
     /* Sidebar */
     #sidebar {
-      width: 240px; height: 100vh; position: fixed; top: 0; left: 0;
+      width: 240px; position: fixed; top: 0; bottom: 0; left: 0;
       background: rgba(10,15,35,0.98); border-right: 1px solid var(--border);
       display: flex; flex-direction: column; z-index: 100;
       transition: transform .3s ease;
@@ -78,8 +78,16 @@
     }
     .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
 
+
+    /* Sticky action bar for the Settings screen */
+    .save-bar { position: sticky; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 14px; max-width: 42rem; margin-top: 16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--border); }
+    .save-bar .save-state { flex: 1 1 150px; min-width: 0; font-size: 12px; color: #7a8499; overflow-wrap: anywhere; }
+    .save-bar .save-state.is-dirty { color: #fbbf24; }
+    .save-bar .save-actions { display: flex; gap: 8px; }
+    @media (max-width: 900px) { .save-bar { padding-right: 76px; } } /* clears the floating support button */
+
     /* Main content */
-    #main-content { margin-left: 240px; min-height: 100vh; transition: margin .3s; }
+    #main-content { margin-left: 240px; transition: margin .3s; }
 
     /* Top bar */
     .topbar {
@@ -279,7 +287,7 @@
   </nav>
 
   <!-- Main content -->
-  <div id="main-content" style="margin-left:240px;height:100vh;overflow-y:auto;transition:margin .3s;">
+  <div id="main-content" style="margin-left:240px;height:100%;overflow-y:auto;overscroll-behavior:contain;transition:margin .3s;">
     <!-- Top bar -->
     <div class="topbar">
       <div class="flex items-center gap-3">
@@ -502,7 +510,7 @@
               <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">It must start with https:// and usually ends in /v1.</p></div>
             <div class="a-group"><label class="a-label" for="ai-api_key">API key</label>
               <div id="ai-key-saved" style="display:none;align-items:center;gap:10px;flex-wrap:wrap;">
-                <code id="ai-key-hint" style="padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:#e8edf8;"></code>
+                <code id="ai-key-hint" style="overflow-wrap:anywhere;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:12px;color:#e8edf8;"></code>
                 <button type="button" class="btn-a-ghost" id="ai-key-replace">Replace key</button>
                 <button type="button" class="btn-a-ghost" id="ai-key-clear">Remove key</button>
               </div>
@@ -511,31 +519,31 @@
               <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;" id="ai-key-help">The key is stored encrypted on your server and is never shown again after you save it.</p></div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
               <button type="button" class="btn-a-ghost" id="ai-load-models">Load models</button>
-              <span id="ai-models-status" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;"></span>
+              <span id="ai-models-status" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;flex:1 1 220px;min-width:0;overflow-wrap:anywhere;"></span>
             </div>
 
             <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Model</div>
             <div class="a-group"><label class="a-label" for="ai-model-search">Search models</label><input id="ai-model-search" class="a-input" placeholder="Type to filter the list" autocomplete="off"></div>
-            <div class="a-group"><label class="a-label" for="ai-model">Model</label><select id="ai-model" class="a-input" style="appearance:none;"><option value="">Load models to choose one</option></select><div class="ai-err" data-for="ai_model" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+            <div class="a-group"><label class="a-label" for="ai-model">Model</label><select id="ai-model" class="a-input" style="appearance:none;"><option value="">Load models to choose one</option></select><div id="ai-model-full" style="font-size:12px;color:#e8edf8;margin-top:6px;overflow-wrap:anywhere;word-break:break-word;"></div><div class="ai-err" data-for="ai_model" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
               <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">If your provider does not list models, load them anyway or pick a preset, then choose from the list.</p></div>
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
               <button type="button" class="btn-a-ghost" id="ai-test">Test connection</button>
-              <span id="ai-test-result" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;"></span>
+              <span id="ai-test-result" role="status" aria-live="polite" style="font-size:12px;color:#7a8499;flex:1 1 220px;min-width:0;overflow-wrap:anywhere;"></span>
             </div>
 
             <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Behaviour</div>
             <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-bottom:10px;margin-top:0;">Write this as if briefing an assistant. Tell it who you are, what you build, your pricing range, what you do not do, and how to respond to visitors. Your projects, tools and templates are shared with the assistant automatically.</p>
             <div class="a-group"><label class="a-label" for="ai-system_prompt">System prompt</label><textarea id="ai-system_prompt" class="a-textarea" rows="12"></textarea><div class="ai-err" data-for="ai_system_prompt" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
               <div style="margin-top:8px;"><button type="button" class="btn-a-ghost" id="ai-prompt-reset">Restore default prompt</button></div></div>
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
               <div class="a-group"><label class="a-label" for="ai-temperature">Creativity <span style="font-size:10px;opacity:.5">(0 to 1.5)</span></label><input type="number" step="0.1" min="0" max="1.5" id="ai-temperature" class="a-input"><div class="ai-err" data-for="ai_temperature" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
-              <div class="a-group"><label class="a-label" for="ai-max_tokens">Reply length <span style="font-size:10px;opacity:.5">(50 to 1000)</span></label><input type="number" step="10" min="50" max="1000" id="ai-max_tokens" class="a-input"><div class="ai-err" data-for="ai_max_tokens" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+              <div class="a-group"><label class="a-label" for="ai-max_chars">Maximum reply length (characters)</label><input type="number" step="50" min="200" max="3000" id="ai-max_chars" class="a-input"><div class="ai-err" data-for="ai_max_chars" style="font-size:11px;color:#f87171;margin-top:4px;"></div><p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">From 200 to 3000. Replies are written to fit this length and are never cut off in the middle of a sentence. About 700 suits a short, helpful answer.</p></div></div>
               <div class="a-group"><label class="a-label" for="ai-daily_cap">Daily limit <span style="font-size:10px;opacity:.5">(per visitor, 0 = none)</span></label><input type="number" step="1" min="0" max="500" id="ai-daily_cap" class="a-input"><div class="ai-err" data-for="ai_daily_cap" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
             </div>
             <div class="a-group"><label class="a-label" for="ai-off_message">Message when chat is off or the limit is reached</label><textarea id="ai-off_message" class="a-textarea" rows="2" maxlength="300"></textarea><div class="ai-err" data-for="ai_off_message" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
 
             <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What visitors see</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
               <div class="a-group"><label class="a-label" for="ai-name">Assistant name</label><input id="ai-name" class="a-input" maxlength="40"><div class="ai-err" data-for="ai_name" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
               <div class="a-group"><label class="a-label" for="ai-launcher_label">Launcher label</label><input id="ai-launcher_label" class="a-input" maxlength="40"><div class="ai-err" data-for="ai_launcher_label" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
             </div>
@@ -554,8 +562,13 @@
             </div>
           </div>
 
-          <button class="btn-a-primary mt-4" onclick="Admin.saveSettings()">Save Settings</button>
-          <p id="settings-msg" class="hidden text-emerald text-xs mt-2">✓ Saved.</p>
+        </div>
+      </div>
+      <div class="save-bar" role="region" aria-label="Settings actions">
+        <span id="save-state" class="save-state" role="status" aria-live="polite">All changes saved</span>
+        <div class="save-actions">
+          <button type="button" class="btn-a-ghost" id="settings-discard" onclick="Admin.discardSettings()" disabled>Discard</button>
+          <button type="button" class="btn-a-primary" id="settings-save" onclick="Admin.saveSettings()">Save Settings</button>
         </div>
       </div>
     </div>
