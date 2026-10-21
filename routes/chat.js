@@ -1,6 +1,5 @@
-const express = require('express');
 const crypto = require('crypto');
-const router = express.Router();
+const router = require('../lib/safeRouter')();
 const rateLimit = require('express-rate-limit');
 const { getPool } = require('../db/init');
 const ai = require('../lib/aiConfig');
