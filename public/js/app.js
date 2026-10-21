@@ -10,8 +10,17 @@ const App = (() => {
       headers: { 'Content-Type': 'application/json', ...opts.headers },
       ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined,
     });
-    if (!res.ok) { const e = await res.json().catch(() => ({ error: 'Request failed' })); throw new Error(e.error); }
-    return res.json();
+    let data = null;
+    try { data = await res.json(); } catch { data = null; }
+    if (!res.ok) {
+      // The server always answers with { error, code, fields? }. Its message is written for people.
+      const err = new Error((data && data.error) || 'Something went wrong. Please try again.');
+      err.status = res.status;
+      if (data && data.fields) err.fields = data.fields;
+      if (data && data.retryAfter) err.retryAfter = data.retryAfter;
+      throw err;
+    }
+    return data;
   }
 
   const cache = {};
@@ -220,8 +229,11 @@ const App = (() => {
   }
 
   // ─── Boot ────────────────────────────────────────────────────────────────────
-  function init() {
+  async function init() {
     checkAdminToken();
+    // The icon style is a site setting, so it is loaded before the first page is drawn.
+    const { settings } = await shared();
+    await Icons.load(settings.icon_pack);
     initNavbar();
     renderChrome();
     ChatWidget.init();

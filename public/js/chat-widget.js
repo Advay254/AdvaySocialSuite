@@ -103,6 +103,7 @@ const ChatWidget = (() => {
           <p class="muted" style="margin-bottom:var(--space-4);font-size:var(--text-sm)">${S.suggestIntro}</p>
           <div class="field"><label class="label" for="cw-s-text">${S.suggestLabel}</label><textarea id="cw-s-text" class="textarea" rows="4" maxlength="1000"></textarea></div>
           <div class="field"><label class="label" for="cw-s-email">${S.suggestEmail}</label><input id="cw-s-email" class="input" type="email" maxlength="200" autocomplete="email"></div>
+          <div class="hp" aria-hidden="true"><label>Website<input type="text" id="cw-s-website" tabindex="-1" autocomplete="off"></label></div>
           <button type="button" class="btn btn--primary btn--block" id="cw-s-send">${S.suggestSubmit}</button>
           <div id="cw-s-msg" class="notice hidden" role="status" style="margin-top:var(--space-3)"></div>
         </div>
@@ -300,11 +301,11 @@ const ChatWidget = (() => {
     const btn = document.getElementById('cw-s-send');
     btn.disabled = true;
     try {
-      await App.api('/api/suggest', { method: 'POST', body: { content: text.value.trim(), email: email.value.trim() } });
+      await App.api('/api/suggest', { method: 'POST', body: { content: text.value.trim(), email: email.value.trim(), website: (document.getElementById('cw-s-website') || { value: '' }).value } });
       text.value = ''; email.value = '';
       msg.className = 'notice notice--ok'; msg.textContent = S.suggestThanks;
-    } catch {
-      msg.className = 'notice notice--error'; msg.textContent = S.suggestFail;
+    } catch (e) {
+      msg.className = 'notice notice--error'; msg.textContent = e && e.status === 429 ? e.message : S.suggestFail;
     } finally { btn.disabled = false; }
   }
 

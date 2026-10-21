@@ -89,12 +89,15 @@ const Admin = (() => {
   }
 
   function fmt(d) { return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); }
-  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // Escapes text for use in HTML text and in quoted attributes (including single quotes).
+  function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  // Links built from stored data only ever use http or https.
+  function safeHref(u) { try { const x = new URL(String(u||'').trim()); return x.protocol==='https:'||x.protocol==='http:' ? x.href : '#'; } catch { return '#'; } }
   function parseTags(t) { try { return typeof t==='string'?JSON.parse(t):(t||[]); } catch { return []; } }
   function gv(id) { const el=document.getElementById(id); return el?el.value:''; }
   function sv(id,val) { const el=document.getElementById(id); if(el) el.value=val??''; }
-  // For div/span stat elements — use textContent not .value
-  function st(id,val) { const el=document.getElementById(id); if(el) el.textContent=val??'—'; }
+  // For div/span stat elements - use textContent not .value
+  function st(id,val) { const el=document.getElementById(id); if(el) el.textContent=val??'-'; }
 
   // ─── Dashboard ─────────────────────────────────────────────────────────────
   async function loadDashboard() {
@@ -108,7 +111,7 @@ const Admin = (() => {
       if (s.unread_suggestions > 0) { const b = document.getElementById('suggestions-badge'); b.textContent = s.unread_suggestions; b.style.display = 'inline'; }
       const views = document.getElementById('dash-views');
       views.innerHTML = s.top_pages?.length
-        ? `<div style="display:flex;flex-direction:column;gap:8px;">${s.top_pages.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid rgba(255,255,255,.05);"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#7a8499;">/${p.page}</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#00e5ff;">${p.count}</span></div>`).join('')}</div>`
+        ? `<div style="display:flex;flex-direction:column;gap:8px;">${s.top_pages.map(p=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.02);border-radius:8px;border:1px solid rgba(255,255,255,.05);"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#7a8499;">/${esc(p.page)}</span><span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#00e5ff;">${Number(p.count)}</span></div>`).join('')}</div>`
         : `<span style="color:#7a8499;font-size:13px;">No page views yet.</span>`;
     } catch (e) { console.error(e); }
   }
@@ -150,13 +153,13 @@ const Admin = (() => {
       tbody.innerHTML = reposData.map(r=>`
         <tr>
           <td style="font-weight:600;color:#e8edf8;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.title)}</td>
-          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.url?`<a href="${esc(r.url)}" target="_blank" style="color:#00e5ff;font-size:11px;font-family:'JetBrains Mono';">${esc(r.url.replace('https://github.com/',''))}</a>`:'<span style="color:#7a8499;">—</span>'}</td>
+          <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.url?`<a href="${esc(safeHref(r.url))}" target="_blank" style="color:#00e5ff;font-size:11px;font-family:'JetBrains Mono';">${esc(r.url.replace('https://github.com/',''))}</a>`:'<span style="color:#7a8499;">-</span>'}</td>
           <td>${parseTags(r.tags).slice(0,2).map(t=>`<span style="padding:2px 6px;border-radius:4px;font-size:10px;background:rgba(139,92,246,.1);color:#8b5cf6;border:1px solid rgba(139,92,246,.2);margin-right:3px;">${esc(t)}</span>`).join('')}</td>
           <td style="font-family:'JetBrains Mono';font-size:12px;">${r.display_order}</td>
           <td>${r.visible?`<span class="badge-on">Visible</span>`:`<span class="badge-off">Hidden</span>`}</td>
           <td><div style="display:flex;gap:6px;">
-            <button class="btn-a-ghost" onclick="Admin.openRepoModal(${r.id})" style="padding:5px 10px;font-size:11px;">Edit</button>
-            <button class="btn-a-danger" onclick="Admin.deleteRepo(${r.id},'${esc(r.title)}')" style="padding:5px 10px;font-size:11px;">Delete</button>
+            <button class="btn-a-ghost" onclick="Admin.openRepoModal(${Number(r.id)})" style="padding:5px 10px;font-size:11px;">Edit</button>
+            <button class="btn-a-danger" onclick="Admin.deleteRepo(${Number(r.id)})" style="padding:5px 10px;font-size:11px;">Delete</button>
           </div></td>
         </tr>`).join('');
     } catch (e) { console.error('loadRepos:', e); }
@@ -189,8 +192,9 @@ const Admin = (() => {
     } catch (err) { toast(err.message, false); }
   }
 
-  async function deleteRepo(id, title) {
-    if (!confirm(`Delete "${title}"?`)) return;
+  async function deleteRepo(id) {
+    const row = reposData.find(x => x.id === id);
+    if (!confirm(`Delete "${row ? row.title : 'this repository'}"?`)) return;
     try { await api(`/api/admin/repos/${id}`,{method:'DELETE'}); toast('Deleted.'); loadRepos(); }
     catch (err) { toast(err.message, false); }
   }
@@ -204,15 +208,15 @@ const Admin = (() => {
       if (!toolsData.length) { tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;color:#7a8499;padding:24px;">No tools yet.</td></tr>`; return; }
       tbody.innerHTML = toolsData.map(t=>`
         <tr>
-          <td style="font-size:20px;text-align:center;">${t.icon||'🔧'}</td>
+          <td style="font-size:20px;text-align:center;">${Icons.svg(t.icon||'wrench',{size:20})}</td>
           <td style="font-weight:600;color:#e8edf8;">${esc(t.title)}</td>
-          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.url?`<a href="${esc(t.url)}" target="_blank" style="color:#00e5ff;font-size:11px;font-family:'JetBrains Mono';">${esc(t.url)}</a>`:'—'}</td>
-          <td style="font-size:12px;color:#7a8499;">${t.category||'—'}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.url?`<a href="${esc(safeHref(t.url))}" target="_blank" style="color:#00e5ff;font-size:11px;font-family:'JetBrains Mono';">${esc(t.url)}</a>`:'-'}</td>
+          <td style="font-size:12px;color:#7a8499;">${esc(t.category||'-')}</td>
           <td>${t.status==='active'?`<span class="badge-on">Active</span>`:`<span class="badge-off">Inactive</span>`}</td>
           <td style="font-family:'JetBrains Mono';font-size:12px;">${t.display_order}</td>
           <td><div style="display:flex;gap:6px;">
-            <button class="btn-a-ghost" onclick="Admin.openToolModal(${t.id})" style="padding:5px 10px;font-size:11px;">Edit</button>
-            <button class="btn-a-danger" onclick="Admin.deleteTool(${t.id},'${esc(t.title)}')" style="padding:5px 10px;font-size:11px;">Delete</button>
+            <button class="btn-a-ghost" onclick="Admin.openToolModal(${Number(t.id)})" style="padding:5px 10px;font-size:11px;">Edit</button>
+            <button class="btn-a-danger" onclick="Admin.deleteTool(${Number(t.id)})" style="padding:5px 10px;font-size:11px;">Delete</button>
           </div></td>
         </tr>`).join('');
     } catch (e) { console.error('loadTools:', e); }
@@ -223,13 +227,19 @@ const Admin = (() => {
     if (id) {
       const t = toolsData.find(x=>x.id===id); if (!t) return;
       document.getElementById('tool-modal-title').textContent = 'Edit Tool';
-      sv('tool-edit-id',id); sv('tf-icon',t.icon); sv('tf-title',t.title);
+      sv('tool-edit-id',id); setToolIcon(t.icon); sv('tf-title',t.title);
       sv('tf-url',t.url); sv('tf-description',t.description);
       sv('tf-category',t.category); sv('tf-status',t.status); sv('tf-order',t.display_order);
     } else {
       document.getElementById('tool-modal-title').textContent = 'Add Tool';
-      sv('tool-edit-id',''); document.getElementById('tool-form').reset();
+      sv('tool-edit-id',''); document.getElementById('tool-form').reset(); setToolIcon(Icons.categoryDefault(gv('tf-category')||'tool'));
     }
+  }
+
+  function setToolIcon(value) {
+    const v = Icons.has(value) ? value : Icons.categoryDefault(gv('tf-category')||'tool');
+    sv('tf-icon', v);
+    document.getElementById('tf-icon-preview').innerHTML = Icons.svg(v, { size: 22 });
   }
 
   async function saveTool(e) {
@@ -243,8 +253,9 @@ const Admin = (() => {
     } catch (err) { toast(err.message, false); }
   }
 
-  async function deleteTool(id, title) {
-    if (!confirm(`Delete "${title}"?`)) return;
+  async function deleteTool(id) {
+    const row = toolsData.find(x => x.id === id);
+    if (!confirm(`Delete "${row ? row.title : 'this tool'}"?`)) return;
     try { await api(`/api/admin/tools/${id}`,{method:'DELETE'}); toast('Deleted.'); loadTools(); }
     catch (err) { toast(err.message, false); }
   }
@@ -261,13 +272,13 @@ const Admin = (() => {
         <tr>
           <td style="font-weight:600;color:#e8edf8;max-width:120px;">${esc(t.title)}</td>
           <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;font-size:12px;color:#7a8499;">${esc((t.description||'').substring(0,60))}${(t.description||'').length>60?'…':''}</td>
-          <td>${t.json_url?`<a href="${esc(t.json_url)}" target="_blank" style="color:#00e5ff;font-size:11px;">link</a>`:'—'}</td>
+          <td>${t.json_url?`<a href="${esc(safeHref(t.json_url))}" target="_blank" style="color:#00e5ff;font-size:11px;">link</a>`:'-'}</td>
           <td>${parseTags(t.tags).slice(0,2).map(tg=>`<span style="padding:2px 6px;border-radius:4px;font-size:10px;background:rgba(0,229,255,.08);color:#00e5ff;border:1px solid rgba(0,229,255,.15);margin-right:3px;">${esc(tg)}</span>`).join('')}</td>
           <td style="font-family:'JetBrains Mono';font-size:12px;">${t.display_order}</td>
           <td>${t.visible?`<span class="badge-on">Visible</span>`:`<span class="badge-off">Hidden</span>`}</td>
           <td><div style="display:flex;gap:6px;">
-            <button class="btn-a-ghost" onclick="Admin.openTemplateModal(${t.id})" style="padding:5px 10px;font-size:11px;">Edit</button>
-            <button class="btn-a-danger" onclick="Admin.deleteTemplate(${t.id},'${esc(t.title)}')" style="padding:5px 10px;font-size:11px;">Delete</button>
+            <button class="btn-a-ghost" onclick="Admin.openTemplateModal(${Number(t.id)})" style="padding:5px 10px;font-size:11px;">Edit</button>
+            <button class="btn-a-danger" onclick="Admin.deleteTemplate(${Number(t.id)})" style="padding:5px 10px;font-size:11px;">Delete</button>
           </div></td>
         </tr>`).join('');
     } catch (e) { console.error('loadTemplates:', e); }
@@ -299,14 +310,15 @@ const Admin = (() => {
     } catch (err) { toast(err.message, false); }
   }
 
-  async function deleteTemplate(id, title) {
-    if (!confirm(`Delete "${title}"?`)) return;
+  async function deleteTemplate(id) {
+    const row = templatesData.find(x => x.id === id);
+    if (!confirm(`Delete "${row ? row.title : 'this template'}"?`)) return;
     try { await api(`/api/admin/templates/${id}`,{method:'DELETE'}); toast('Deleted.'); loadTemplates(); }
     catch (err) { toast(err.message, false); }
   }
 
   // ─── Settings ──────────────────────────────────────────────────────────────
-  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','accent_color','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','cylinder_labels','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact'];
+  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','accent_color','icon_pack','allowed_origins','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','cylinder_labels','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact'];
 
   async function loadSettings() {
     try {
@@ -314,6 +326,9 @@ const Admin = (() => {
       SETTING_KEYS.forEach(k=>sv(`s-${k}`,s[k]??''));
       SETTING_KEYS.forEach(k=>{ const el=document.getElementById(`s-${k}`); if(el) el.addEventListener('input',markDirty); });
       initAccentField();
+      mountListEditors();
+      await renderPackList();
+      await loadCustomIcons();
       await loadAi();
       // Live char counter for collab_intro
       const ciEl = document.getElementById('s-collab_intro');
@@ -344,7 +359,9 @@ const Admin = (() => {
       updateSaveBar('Saved just now');
       setTimeout(()=>updateSaveBar(), 3000);
     } catch (err) {
-      showFieldError('accent_color', err.message);
+      // The server names each setting it did not accept. Show every message next to its field.
+      if (err.fields) Object.entries(err.fields).forEach(([k, m]) => showFieldError(k, m));
+      else showFieldError('accent_color', err.message);
       toast(err.message, false);
     } finally {
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Settings'; }
@@ -566,14 +583,14 @@ const Admin = (() => {
       if (!rows.length) { tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;color:#7a8499;padding:24px;">No collaboration requests yet.</td></tr>`; return; }
       tbody.innerHTML = rows.map(r=>`
         <tr style="${!r.read?'background:rgba(0,229,255,.02);':''}">
-          <td style="font-weight:${r.read?400:600};color:#e8edf8;">${esc(r.name||'—')}${!r.read?` <span class="badge-new" style="font-size:9px;">NEW</span>`:''}</td>
-          <td style="font-size:12px;color:#7a8499;">${esc(r.email||'—')}</td>
-          <td style="font-size:13px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.subject||'—')}</td>
+          <td style="font-weight:${r.read?400:600};color:#e8edf8;">${esc(r.name||'-')}${!r.read?` <span class="badge-new" style="font-size:9px;">NEW</span>`:''}</td>
+          <td style="font-size:12px;color:#7a8499;">${esc(r.email||'-')}</td>
+          <td style="font-size:13px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(r.subject||'-')}</td>
           <td style="font-size:12px;max-width:200px;color:#b0bcd4;">${esc((r.message||'').substring(0,80))}${(r.message||'').length>80?'…':''}</td>
-          <td style="font-size:11px;color:#7a8499;white-space:nowrap;">${fmt(r.created_at)}</td>
+          <td style="font-size:11px;color:#7a8499;white-space:nowrap;">${esc(fmt(r.created_at))}</td>
           <td><div style="display:flex;gap:6px;">
-            ${!r.read?`<button class="btn-a-ghost" onclick="Admin.markCollabRead(${r.id},this)" style="padding:4px 10px;font-size:11px;">Mark read</button>`:''}
-            <button class="btn-a-danger" onclick="Admin.deleteCollab(${r.id})" style="padding:4px 10px;font-size:11px;">Delete</button>
+            ${!r.read?`<button class="btn-a-ghost" onclick="Admin.markCollabRead(${Number(r.id)},this)" style="padding:4px 10px;font-size:11px;">Mark read</button>`:''}
+            <button class="btn-a-danger" onclick="Admin.deleteCollab(${Number(r.id)})" style="padding:4px 10px;font-size:11px;">Delete</button>
           </div></td>
         </tr>`).join('');
     } catch (e) { console.error(e); }
@@ -601,11 +618,11 @@ const Admin = (() => {
       tbody.innerHTML = rows.map(r=>`
         <tr style="${!r.read?'background:rgba(139,92,246,.03);':''}">
           <td style="max-width:280px;font-size:13px;color:#b0bcd4;">${esc(r.content||'')}${!r.read?` <span class="badge-new" style="font-size:9px;">NEW</span>`:''}</td>
-          <td style="font-size:12px;color:#7a8499;">${esc(r.email||'—')}</td>
-          <td style="font-size:11px;color:#7a8499;white-space:nowrap;">${fmt(r.created_at)}</td>
+          <td style="font-size:12px;color:#7a8499;">${esc(r.email||'-')}</td>
+          <td style="font-size:11px;color:#7a8499;white-space:nowrap;">${esc(fmt(r.created_at))}</td>
           <td><div style="display:flex;gap:6px;">
-            ${!r.read?`<button class="btn-a-ghost" onclick="Admin.markSuggestRead(${r.id},this)" style="padding:4px 10px;font-size:11px;">Mark read</button>`:''}
-            <button class="btn-a-danger" onclick="Admin.deleteSuggest(${r.id})" style="padding:4px 10px;font-size:11px;">Delete</button>
+            ${!r.read?`<button class="btn-a-ghost" onclick="Admin.markSuggestRead(${Number(r.id)},this)" style="padding:4px 10px;font-size:11px;">Mark read</button>`:''}
+            <button class="btn-a-danger" onclick="Admin.deleteSuggest(${Number(r.id)})" style="padding:4px 10px;font-size:11px;">Delete</button>
           </div></td>
         </tr>`).join('');
     } catch (e) { console.error(e); }
@@ -646,6 +663,158 @@ const Admin = (() => {
   ['repo-modal','tool-modal','template-modal'].forEach(id => {
     document.getElementById(id)?.addEventListener('click', function(e) { if(e.target===this) closeModal(id); });
   });
+
+  // ─── Icons in the admin ──────────────────────────────────────────────────────
+  async function initIcons() {
+    let pack = 'lucide';
+    try { const r = await fetch('/api/settings'); if (r.ok) pack = (await r.json()).icon_pack || pack; } catch { /* default style */ }
+    await Icons.load(pack);
+    Icons.hydrate(document);
+  }
+
+  const PACK_LABELS = { lucide: 'Lucide', tabler: 'Tabler', phosphor: 'Phosphor', heroicons: 'Heroicons', feather: 'Feather' };
+  const PACK_NOTES = { lucide: 'Clean and friendly with even strokes.', tabler: 'Slightly rounder, with plenty of detail.', phosphor: 'Soft and balanced.', heroicons: 'Simple and confident.', feather: 'Light and minimal.' };
+  const PACK_SAMPLE = ['rocket', 'code', 'bot', 'workflow', 'globe', 'mail', 'heart', 'star'];
+  const packCache = {};
+
+  function previewSvg(bundle, name) {
+    const e = bundle.icons[name]; if (!e) return '';
+    const paint = bundle.kind === 's'
+      ? `fill="none" stroke="currentColor" stroke-width="${bundle.strokeWidth}" stroke-linecap="round" stroke-linejoin="round"`
+      : 'fill="currentColor"';
+    return `<svg class="icon" viewBox="${esc(e[0])}" ${paint} aria-hidden="true" focusable="false">${e[1]}</svg>`;
+  }
+
+  async function renderPackList() {
+    const host = $('icon-pack-list'); if (!host) return;
+    await Promise.all(Icons.packs.map(async id => {
+      if (packCache[id]) return;
+      try { const r = await fetch(`/icons/${id}.json?v=1.1.0`); if (r.ok) packCache[id] = await r.json(); } catch { /* preview row stays empty */ }
+    }));
+    const current = Icons.packs.includes(gv('s-icon_pack')) ? gv('s-icon_pack') : 'lucide';
+    sv('s-icon_pack', current);
+    host.innerHTML = Icons.packs.map(id => {
+      const b = packCache[id];
+      return `<button type="button" class="pack-option" role="radio" aria-checked="${id === current}" tabindex="${id === current ? 0 : -1}" data-pack="${id}">
+        <strong>${esc(PACK_LABELS[id])}</strong><span style="font-size:11px;color:#7a8499;">${esc(PACK_NOTES[id])}</span>
+        <span class="pack-row">${b ? PACK_SAMPLE.map(n => previewSvg(b, n)).join('') : ''}</span></button>`;
+    }).join('');
+    if (!host.dataset.bound) {
+      host.dataset.bound = '1';
+      const choose = (id) => {
+        sv('s-icon_pack', id); markDirty(); showFieldError('icon_pack', '');
+        host.querySelectorAll('.pack-option').forEach(b => { const on = b.dataset.pack === id; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+        Icons.switchPack(id); // the admin screens preview the style at once, the public site changes when you save
+      };
+      host.addEventListener('click', e => { const b = e.target.closest('.pack-option'); if (b) choose(b.dataset.pack); });
+      host.addEventListener('keydown', e => {
+        const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+        if (!(e.key in keys)) return;
+        e.preventDefault();
+        const ids = Icons.packs; const i = ids.indexOf(gv('s-icon_pack'));
+        const next = ids[(i + keys[e.key] + ids.length) % ids.length];
+        choose(next); host.querySelector(`[data-pack="${next}"]`).focus();
+      });
+    }
+  }
+
+  // ─── Custom icons ────────────────────────────────────────────────────────────
+  async function loadCustomIcons() {
+    const host = $('custom-icons-list'); if (!host) return;
+    try { const r = await fetch('/api/icons/custom'); const d = await r.json(); Icons.setCustom(d.icons || []); } catch { /* keep what we have */ }
+    const list = Object.values(Icons.custom());
+    host.innerHTML = list.length
+      ? list.map(c => `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;"><span style="font-size:22px;display:inline-flex;">${Icons.svg('custom:' + Number(c.id), { size: 22 })}</span><span style="flex:1;overflow-wrap:anywhere;">${esc(c.name)}</span><button type="button" class="btn-a-danger" data-del="${Number(c.id)}" style="padding:5px 10px;font-size:11px;">Delete</button></div>`).join('')
+      : '<p style="font-size:12px;color:#7a8499;">You have not added any icons of your own yet.</p>';
+  }
+
+  function bindCustomIcons() {
+    const host = $('custom-icons-list'); if (!host || host.dataset.bound) return;
+    host.dataset.bound = '1';
+    host.addEventListener('click', async e => {
+      const b = e.target.closest('[data-del]'); if (!b) return;
+      if (!confirm('Delete this icon? Anything that uses it will show a default icon instead.')) return;
+      try { await api(`/api/admin/icons/custom/${Number(b.dataset.del)}`, { method: 'DELETE' }); toast('Icon deleted.'); await loadCustomIcons(); }
+      catch (err) { toast(err.message, false); }
+    });
+    $('ci-file').addEventListener('change', e => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      if (f.size > 12 * 1024) { showFieldError('ci', 'That file is larger than 10 KB.'); e.target.value = ''; return; }
+      const reader = new FileReader();
+      reader.onload = () => { sv('ci-svg', String(reader.result || '')); showFieldError('ci', ''); if (!gv('ci-name')) sv('ci-name', f.name.replace(/\.svg$/i, '').slice(0, 40)); };
+      reader.readAsText(f);
+    });
+    $('ci-add').addEventListener('click', async () => {
+      showFieldError('ci', '');
+      const name = gv('ci-name').trim(), svg = gv('ci-svg').trim();
+      if (!name) { showFieldError('ci', 'Give the icon a name.'); return; }
+      if (!svg) { showFieldError('ci', 'Choose an SVG file or paste the SVG code.'); return; }
+      const btn = $('ci-add'); btn.disabled = true;
+      try {
+        await api('/api/admin/icons/custom', { method: 'POST', body: { name, svg } });
+        sv('ci-name', ''); sv('ci-svg', ''); sv('ci-file', '');
+        toast('Icon added.'); await loadCustomIcons();
+      } catch (err) { showFieldError('ci', err.message); }
+      finally { btn.disabled = false; }
+    });
+  }
+
+  // ─── Card list editors (services and specializations) ────────────────────────
+  function mountListEditors() {
+    document.querySelectorAll('.le[data-target]').forEach(host => {
+      let arr = [];
+      try { arr = JSON.parse(gv(host.dataset.target) || '[]'); } catch { arr = []; }
+      if (!Array.isArray(arr)) arr = [];
+      host._items = arr.slice(0, 12).map((it, i) => ({
+        icon: Icons.has(it && it.icon) ? it.icon : Icons.serviceDefault(i),
+        title: String((it && it.title) || ''), desc: String((it && it.desc) || ''),
+      }));
+      drawList(host);
+      if (host.dataset.bound) return;
+      host.dataset.bound = '1';
+      host.addEventListener('input', e => {
+        const row = e.target.closest('.le-row'); const f = e.target.dataset.f; if (!row || !f) return;
+        host._items[Number(row.dataset.i)][f] = e.target.value; syncList(host);
+      });
+      host.addEventListener('click', e => {
+        const btn = e.target.closest('[data-act]'); if (!btn) return;
+        const row = btn.closest('.le-row'); const i = row ? Number(row.dataset.i) : -1; const items = host._items;
+        const act = btn.dataset.act;
+        if (act === 'add') { if (items.length < 12) items.push({ icon: Icons.serviceDefault(items.length), title: '', desc: '' }); }
+        else if (act === 'remove') items.splice(i, 1);
+        else if (act === 'up' && i > 0) [items[i - 1], items[i]] = [items[i], items[i - 1]];
+        else if (act === 'down' && i < items.length - 1) [items[i + 1], items[i]] = [items[i], items[i + 1]];
+        else if (act === 'icon') {
+          IconPicker.open({ value: items[i].icon, onSelect: v => { items[i].icon = v; drawList(host); syncList(host); const b = host.querySelector(`.le-row[data-i="${i}"] [data-act="icon"]`); if (b) b.focus(); } });
+          return;
+        }
+        drawList(host); syncList(host);
+      });
+    });
+  }
+  function syncList(host) { sv(host.dataset.target, JSON.stringify(host._items)); markDirty(); }
+  function drawList(host) {
+    const items = host._items;
+    host.innerHTML = items.map((it, i) => `
+      <div class="le-row" data-i="${i}">
+        <button type="button" class="btn-a-ghost" data-act="icon" aria-label="Choose the icon for card ${i + 1}" style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;">${Icons.svg(it.icon, { size: 22 })}</button>
+        <div class="le-fields">
+          <input class="a-input" data-f="title" maxlength="80" value="${esc(it.title)}" placeholder="Title" aria-label="Title of card ${i + 1}">
+          <textarea class="a-textarea" data-f="desc" rows="2" maxlength="400" placeholder="Description" aria-label="Description of card ${i + 1}">${esc(it.desc)}</textarea>
+        </div>
+        <div class="le-actions">
+          <button type="button" class="btn-a-ghost" data-act="up" ${i === 0 ? 'disabled' : ''} style="padding:5px 10px;font-size:11px;">Move up</button>
+          <button type="button" class="btn-a-ghost" data-act="down" ${i === items.length - 1 ? 'disabled' : ''} style="padding:5px 10px;font-size:11px;">Move down</button>
+          <button type="button" class="btn-a-danger" data-act="remove" style="padding:5px 10px;font-size:11px;">Remove</button>
+        </div>
+      </div>`).join('') + (items.length < 12 ? '<div><button type="button" class="btn-a-ghost" data-act="add">Add card</button></div>' : '');
+  }
+
+  // Tool icon button and one time wiring
+  $('tf-icon-btn')?.addEventListener('click', () => IconPicker.open({ value: gv('tf-icon'), onSelect: v => { setToolIcon(v); const b = $('tf-icon-btn'); if (b) b.focus(); } }));
+  bindCustomIcons();
+  initIcons();
+
 
   return { login, logout, goTo, saveProfile, loadProfile, openRepoModal, saveRepo, deleteRepo, openToolModal, saveTool, deleteTool, openTemplateModal, saveTemplate, deleteTemplate, loadTemplates, saveSettings, discardSettings, loadSettings, loadCollabs, markCollabRead, deleteCollab, loadSuggestions, markSuggestRead, deleteSuggest, closeModal, switchTab, openSidebar, closeSidebar };
 })();
