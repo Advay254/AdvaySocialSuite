@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const { DEFAULTS: AI_DEFAULTS } = require('../lib/aiDefaults');
+const { migrateEmoji } = require('./migrateEmoji');
 
 let pool;
 function getPool() {
@@ -45,7 +46,7 @@ CREATE TABLE IF NOT EXISTS tools (
   title TEXT NOT NULL,
   url TEXT DEFAULT '',
   description TEXT DEFAULT '',
-  icon TEXT DEFAULT '🔧',
+  icon TEXT DEFAULT 'wrench',
   category TEXT DEFAULT 'tool',
   status TEXT DEFAULT 'active',
   display_order INT DEFAULT 0,
@@ -90,6 +91,13 @@ CREATE TABLE IF NOT EXISTS page_views (
   page TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS custom_icons (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  svg TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 `;
 
 const MIGRATIONS = `
@@ -104,11 +112,11 @@ const SEED_SETTINGS = [
   ['repo_count', '26'],
   ['years_exp', '1'],
   ['site_tagline', 'Build. Automate. Deploy.'],
-  ['meta_description', 'Portfolio and tools hub — automation engineer and builder.'],
+  ['meta_description', 'Portfolio and tools hub for an automation engineer and builder.'],
   ['home_headline', 'Building the Internet,\nOne Tool at a Time.'],
-  ['home_subheadline', 'Automation engineer. I ship practical web tools, bots, and systems that solve real problems — and keep solving them, indefinitely.'],
+  ['home_subheadline', 'Automation engineer. I ship practical web tools, bots, and systems that solve real problems and keep solving them, indefinitely.'],
   ['philosophy_quote', 'Build things that work.\nKeep them simple.\nMake them last.'],
-  ['philosophy_sub', 'If something runs once, it runs forever — and if it runs daily, it runs itself.'],
+  ['philosophy_sub', 'If something runs once, it runs forever. If it runs daily, it runs itself.'],
   ['timeline_1', 'Automation & n8n Workflows'],
   ['timeline_2', 'Bot Development (WhatsApp, Telegram)'],
   ['timeline_3', 'Web Tools & API Microservices'],
@@ -116,20 +124,27 @@ const SEED_SETTINGS = [
   ['templates_visible', '1'],
   ['cylinder_labels', 'BAILEYS BOTS,REST APIs,N8N WORKFLOWS,SUPABASE / POSTGRES,RENDER DEPLOYMENTS,WEBHOOK SYSTEMS,PWA TOOLS,ADSTERRA MONETIZATION'],
   ['theme_interval', '6'],
-  ['collab_intro', 'I build automation systems, bots, and web tools — remote only, global clients welcome. Most projects are completed within 1–2 weeks. I keep things practical, free-tier first, and built to last.'],
+  ['collab_intro', 'I build automation systems, bots, and web tools. Remote only, global clients welcome. Most projects are completed within 1 to 2 weeks. I keep things practical, free-tier first, and built to last.'],
   ['collab_subtitle', 'Got a project idea? Let\'s talk.'],
   ['collab_qi_1', 'Usually responds within 24 hours'],
   ['collab_qi_2', 'Specializes in free-tier, zero-cost production systems'],
   ['collab_qi_3', 'Prefers small-to-medium scoped projects with clear goals'],
-  ['collab_services', '[{"icon": "\\u2699\\ufe0f", "title": "Automation Systems", "desc": "n8n workflows, API pipelines, scheduled tasks and complex multi-step automation."}, {"icon": "\\ud83e\\udd16", "title": "Bot Development", "desc": "WhatsApp bots (Baileys), Telegram bots, webhook-driven messaging systems."}, {"icon": "\\ud83c\\udf10", "title": "Web Tools & Apps", "desc": "Downloaders, utilities, dashboards \\u2014 fast, mobile-first, deployable on free tier."}, {"icon": "\\ud83d\\udd0c", "title": "API Integrations", "desc": "Connecting third-party services, building proxy layers, REST API microservices."}, {"icon": "\\ud83d\\udcca", "title": "Data Pipelines", "desc": "Automated data collection, transformation, and delivery workflows."}, {"icon": "\\ud83d\\udca1", "title": "Technical Consulting", "desc": "Architecture reviews, workflow optimization, free-tier scaling strategy."}]'],
+  ['collab_services', JSON.stringify([
+    { icon: 'settings', title: 'Automation Systems', desc: 'n8n workflows, API pipelines, scheduled tasks and complex multi-step automation.' },
+    { icon: 'bot', title: 'Bot Development', desc: 'WhatsApp bots (Baileys), Telegram bots, webhook-driven messaging systems.' },
+    { icon: 'globe', title: 'Web Tools & Apps', desc: 'Downloaders, utilities, dashboards. Fast, mobile-first, deployable on free tier.' },
+    { icon: 'plug', title: 'API Integrations', desc: 'Connecting third-party services, building proxy layers, REST API microservices.' },
+    { icon: 'chart', title: 'Data Pipelines', desc: 'Automated data collection, transformation, and delivery workflows.' },
+    { icon: 'lightbulb', title: 'Technical Consulting', desc: 'Architecture reviews, workflow optimization, free-tier scaling strategy.' },
+  ])],
   ['tools_subtitle', 'Fully deployed, free-to-use tools. Click any card to visit.'],
   ['templates_subtitle', 'Ready-to-import workflow templates. Click the JSON button to download and import.'],
   ['webhook_url', ''],
   ['specializations', JSON.stringify([
-    { icon:'⚙️', title:'Workflow Engineering', desc:'Advanced n8n implementations with custom logic, multi-agent architectures, and sophisticated automation flows.' },
-    { icon:'🤖', title:'Bot Development', desc:'Functional, reliable bots with clean architecture — WhatsApp (Baileys), Telegram, and webhook-driven systems.' },
-    { icon:'🌐', title:'Web Tools', desc:'Fast, mobile-first web apps with real usability — downloaders, shorteners, discovery platforms.' },
-    { icon:'🔌', title:'API Microservices', desc:'High-performance, purpose-built services designed for automation pipelines and free-tier hosting.' },
+    { icon:'workflow', title:'Workflow Engineering', desc:'Advanced n8n implementations with custom logic, multi-agent architectures, and sophisticated automation flows.' },
+    { icon:'bot', title:'Bot Development', desc:'Functional, reliable bots with clean architecture. WhatsApp (Baileys), Telegram, and webhook-driven systems.' },
+    { icon:'globe', title:'Web Tools', desc:'Fast, mobile-first web apps with real usability: downloaders, shorteners, discovery platforms.' },
+    { icon:'plug', title:'API Microservices', desc:'High-performance, purpose-built services designed for automation pipelines and free-tier hosting.' },
   ])],
   ['funfact', 'If I do it twice, I automate it. If it takes more than 20 seconds daily, I automate it aggressively.'],
 ];
@@ -165,6 +180,7 @@ const SEED_SETTINGS_V1 = [
   ['home_cta_button', 'Start a conversation'],
   ['home_stat_tools_label', 'Live tools'],
   ['home_stat_repos_label', 'Public repositories'],
+  ['icon_pack', 'lucide'],
   ['home_stat_years_label', 'Years building'],
   ['nav_cta_label', 'Work with me'],
   ['nav_cta_link', '#/collab'],
@@ -181,7 +197,7 @@ const SEED_SETTINGS_V1 = [
 
 const SEED_PROFILE = {
   name: 'Advay', tagline: 'Builder of Useful Things',
-  bio: 'Automation engineer and full-stack builder. I build practical digital products — tools, bots, and systems that solve real problems without unnecessary complexity.',
+  bio: 'Automation engineer and full-stack builder. I build practical digital products: tools, bots, and systems that solve real problems without unnecessary complexity.',
   location: 'Kenya', github_url: 'https://github.com/Advay254',
   linkedin_url: 'https://www.linkedin.com/in/advay-glimmer-571145380',
   bmc_url: 'https://www.buymeacoffee.com/advay254', avatar_url: '',
@@ -190,17 +206,17 @@ const SEED_PROFILE = {
 };
 
 const SEED_REPOS = [
-  { title:'SkyluxMovies', url:'https://github.com/Advay254/SkyluxMovies', description:'🎬 Stream and download free HD movies — no account, no watermark. Self-hostable.', tags:'["Node.js","Express","YTS API","PWA","Render"]', display_order:1 },
-  { title:'Pinterest-Downloader', url:'https://github.com/Advay254/Pinterest-Downloader', description:'📌 Download Pinterest videos and images in original quality — no watermarks, no sign-in required.', tags:'["Node.js","Express","Pinterest API","PWA"]', display_order:2 },
-  { title:'TikTok-Downloder', url:'https://github.com/Advay254/TikTok-Downloder', description:'🎵 Free TikTok video downloader. No-watermark MP4, MP3 audio, slideshow downloads. Installable PWA.', tags:'["Node.js","Express","TikTok","PWA"]', display_order:3 },
+  { title:'SkyluxMovies', url:'https://github.com/Advay254/SkyluxMovies', description:'Stream and download free HD movies. No account, no watermark. Self-hostable.', tags:'["Node.js","Express","YTS API","PWA","Render"]', display_order:1 },
+  { title:'Pinterest-Downloader', url:'https://github.com/Advay254/Pinterest-Downloader', description:'Download Pinterest videos and images in original quality. No watermarks, no sign-in required.', tags:'["Node.js","Express","Pinterest API","PWA"]', display_order:2 },
+  { title:'TikTok-Downloder', url:'https://github.com/Advay254/TikTok-Downloder', description:'Free TikTok video downloader. No-watermark MP4, MP3 audio, slideshow downloads. Installable PWA.', tags:'["Node.js","Express","TikTok","PWA"]', display_order:3 },
 ];
 
 const SEED_TOOLS = [
-  { title:'SkyluxMovies', url:'https://skyluxmovies.onrender.com', description:'Mobile-first movie browsing and download helper. YTS-powered, quality selection 720p–4K, PWA installable.', icon:'🎬', category:'entertainment', status:'active', display_order:1 },
-  { title:'PinSaver', url:'https://advaypinsaver.onrender.com', description:'Pinterest media downloader. No account required, bulk board download up to 50 pins, ZIP export.', icon:'📌', category:'downloader', status:'active', display_order:2 },
-  { title:'AdvaySnapTik', url:'https://advaysnaptik.onrender.com', description:'TikTok downloader — no watermark, slideshow support, fast processing. Installable as PWA.', icon:'🎵', category:'downloader', status:'active', display_order:3 },
-  { title:'AdvayPass', url:'https://advaypass.onrender.com', description:'Smart link shortener with analytics, custom slugs, password protection, auto-expiry and QR codes.', icon:'🔗', category:'utility', status:'active', display_order:4 },
-  { title:'Code & Clarity', url:'https://code-n-clarity.blogspot.com', description:'Tech blog covering automation, web development, and digital tools. Automated Bluesky posting pipeline.', icon:'✍️', category:'blog', status:'active', display_order:5 },
+  { title:'SkyluxMovies', url:'https://skyluxmovies.onrender.com', description:'Mobile-first movie browsing and download helper. YTS-powered, quality selection 720p to 4K, PWA installable.', icon:'film', category:'entertainment', status:'active', display_order:1 },
+  { title:'PinSaver', url:'https://advaypinsaver.onrender.com', description:'Pinterest media downloader. No account required, bulk board download up to 50 pins, ZIP export.', icon:'pin', category:'downloader', status:'active', display_order:2 },
+  { title:'AdvaySnapTik', url:'https://advaysnaptik.onrender.com', description:'TikTok downloader with no watermark, slideshow support and fast processing. Installable as PWA.', icon:'music', category:'downloader', status:'active', display_order:3 },
+  { title:'AdvayPass', url:'https://advaypass.onrender.com', description:'Smart link shortener with analytics, custom slugs, password protection, auto-expiry and QR codes.', icon:'link', category:'utility', status:'active', display_order:4 },
+  { title:'Code & Clarity', url:'https://code-n-clarity.blogspot.com', description:'Tech blog covering automation, web development, and digital tools. Automated Bluesky posting pipeline.', icon:'pen', category:'blog', status:'active', display_order:5 },
 ];
 
 async function initDB() {
@@ -250,6 +266,9 @@ async function initDB() {
       for (const t of SEED_TOOLS)
         await db.query('INSERT INTO tools (title,url,description,icon,category,status,display_order) VALUES ($1,$2,$3,$4,$5,$6,$7)', [t.title,t.url,t.description,t.icon,t.category,t.status,t.display_order]);
     }
+
+    // 1.1.0: stored emoji become icon names, emoji text is removed. Safe to repeat.
+    await migrateEmoji(db);
 
     console.log('[DB] Init complete.');
   } catch (err) {
