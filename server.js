@@ -1,6 +1,5 @@
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
@@ -10,16 +9,23 @@ const adminRoutes = require('./routes/admin');
 const chatRoute = require('./routes/chat');
 const { licenseMiddleware, licenseStatusEndpoint } = require('./middleware/licenseCheck');
 const { version: APP_VERSION } = require('./package.json');
+const { corsPolicy } = require('./middleware/corsPolicy');
+const { createSecurity } = require('./middleware/security');
+const compress = require('./middleware/compress');
+const limiters = require('./middleware/limiters');
+const { requestId, notFoundApi, errorHandler } = require('./middleware/errorHandler');
+const { login: adminLogin } = require('./middleware/adminLogin');
 
 const app = express();
+app.disable('x-powered-by');
 const PORT = process.env.PORT || 3000;
 const ADMIN_PATH = (process.env.ADMIN_PATH || 'secret-panel').replace(/^\//, '');
 
 app.set('trust proxy', 1);
-app.use(cors());
-app.use(express.json({ limit: '5mb' }));
+app.use(corsPolicy());
+app.use(express.json({ limit: '1mb' }));
 
-// ─── License check — runs before everything ───────────────────────────────────
+// ─── License check - runs before everything ───────────────────────────────────
 // Skipped automatically if LC_URL env var is not set
 app.use(licenseMiddleware);
 
@@ -27,6 +33,11 @@ app.use(licenseMiddleware);
 // Rate limited: 10 req/min per IP to prevent abuse
 const pollLimit = rateLimit({ windowMs: 60 * 1000, max: 10, message: { s: 0 } });
 app.post('/api/_', pollLimit, licenseStatusEndpoint);
+
+// ─── Security, compression, cache rules and request limits ─────────────────────
+app.use(requestId);
+app.use(compress());
+app.use(...createSecurity({ adminPath: ADMIN_PATH, adminHtmlFile: path.join(__dirname, 'views', 'admin.html') }));
 
 // ─── Static files ─────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
@@ -54,28 +65,22 @@ const loginLimit = rateLimit({
   message: { error: 'Too many login attempts. Try again later.' },
 });
 
-app.post('/api/admin/auth/login', loginLimit, (req, res) => {
-  const { username, password } = req.body;
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
-    const token = jwt.sign({ role: 'admin' }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    return res.json({ token });
-  }
-  res.status(401).json({ error: 'Invalid credentials' });
-});
+app.post('/api/admin/auth/login', loginLimit, (req, res, next) => adminLogin(req, res).catch(next));
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-app.use('/api', publicRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api', limiters.publicMount, publicRoutes);
+app.use('/api/admin', limiters.admin, adminRoutes);
 app.use('/api/chat', chatRoute);
+app.use('/api', notFoundApi);
 
 // ─── SPA Fallback ─────────────────────────────────────────────────────────────
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/') || req.path === `/${ADMIN_PATH}`) return;
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// ─── Errors: one handler, nothing internal is ever sent to a client ───────────
+app.use(errorHandler);
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 initDB()
