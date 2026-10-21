@@ -76,7 +76,7 @@ const ToolsPage = (() => {
       const url = UI.safeUrl(t.url);
       const st = STATUS[String(t.status || 'active').toLowerCase()] || STATUS.active;
       const inner = `
-        <div class="tile__top">${t.category ? `<span class="tag">${UI.text(t.category)}</span>` : ''}${settings[st[0]] ? `<span class="tag tag--${st[1]}">${UI.text(settings[st[0]])}</span>` : ''}</div>
+        <div class="tile__top"><span class="icon-badge">${UI.iconFor(t.icon, Icons.categoryDefault(t.category))}</span><span class="tags">${t.category ? `<span class="tag">${UI.text(t.category)}</span>` : ''}${settings[st[0]] ? `<span class="tag tag--${st[1]}">${UI.text(settings[st[0]])}</span>` : ''}</span></div>
         <div class="tile__main"><h2 class="tile__name">${UI.text(t.title)}</h2>${t.description ? `<p class="tile__desc">${UI.text(t.description)}</p>` : ''}</div>
         <div class="tile__foot"><span class="tile__host">${UI.text(url ? UI.hostOf(url) : '')}</span>${url && open ? UI.btn({ label: open, static: true, icon: 'arrow-up-right' }) : ''}</div>`;
       const cls = `tile tool-card tile--${TONES[i % 4]}`;

@@ -130,7 +130,8 @@ const HomePage = (() => {
       const tone = TONES[i];
       const inner = `
         <div class="tile__top">
-          ${t.category ? `<span class="tag">${UI.text(t.category)}</span>` : ''}${statusTag(t, settings)}
+          <span class="icon-badge">${UI.iconFor(t.icon, Icons.categoryDefault(t.category))}</span>
+          <span class="tags">${t.category ? `<span class="tag">${UI.text(t.category)}</span>` : ''}${statusTag(t, settings)}</span>
         </div>
         <div class="tile__main">
           <h3 class="tile__name">${UI.text(t.title)}</h3>
@@ -169,7 +170,7 @@ const HomePage = (() => {
       ${head(settings.home_services_kicker, settings.home_services_heading, settings.home_services_subtitle)}
       <div class="services">
         ${items.map((s, i) => `<div class="card card--page service reveal" style="transition-delay:${i * 60}ms">
-          <span class="icon-badge">${UI.serviceIcon(i)}</span>
+          <span class="icon-badge">${UI.iconFor(s.icon, Icons.serviceDefault(i))}</span>
           <h3 class="title">${UI.text(s.title)}</h3>
           <p>${UI.text(s.desc || '')}</p>
         </div>`).join('')}

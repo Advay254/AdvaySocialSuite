@@ -47,7 +47,7 @@ const AboutPage = (() => {
 
         ${specs.length ? `<section style="margin-top:clamp(3rem,6vw,5rem)">
           <div class="section-head reveal"><h2 class="headline">${UI.text(settings.home_services_heading || '')}</h2></div>
-          <div>${specs.map((s, i) => `<div class="service-row reveal"><span class="icon-badge">${UI.serviceIcon(i)}</span><div><h3 class="title">${UI.text(s.title)}</h3><p>${UI.text(s.desc || '')}</p></div></div>`).join('')}</div>
+          <div>${specs.map((s, i) => `<div class="service-row reveal"><span class="icon-badge">${UI.iconFor(s.icon, Icons.serviceDefault(i))}</span><div><h3 class="title">${UI.text(s.title)}</h3><p>${UI.text(s.desc || '')}</p></div></div>`).join('')}</div>
         </section>` : ''}
 
         ${principles.length ? `<section style="margin-top:clamp(3rem,6vw,5rem)">

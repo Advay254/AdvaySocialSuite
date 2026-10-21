@@ -27,6 +27,7 @@ const CollabPage = (() => {
                   <option value="API Integration">API Integration</option><option value="Something else">Something else</option></select>`)}
                 ${field('collab-message', 'Message', '<textarea id="collab-message" name="message" class="textarea" rows="5" placeholder="Describe your project or idea in as much detail as you can." required maxlength="1000"></textarea><div class="counter" id="msg-counter"><span id="msg-count">0</span>/1000</div>')}
                 ${field('c-email', 'Your email', '<input id="c-email" type="email" name="email" class="input" placeholder="you@example.com" required maxlength="200" autocomplete="email">')}
+                <div class="hp" aria-hidden="true"><label>Website<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
                 ${UI.btn({ label: 'Send message', tag: 'button', type: 'submit', id: 'collab-submit-btn', icon: 'send', block: true })}
               </form>
               <div id="collab-success" class="notice notice--ok hidden" role="status" style="margin-top:1.25rem"><strong id="collab-success-title"></strong><span id="collab-success-text"></span></div>
@@ -54,7 +55,7 @@ const CollabPage = (() => {
       if (services.length) {
         document.getElementById('collab-services').classList.remove('hidden');
         document.getElementById('collab-services-grid').innerHTML = services.slice(0, 4).map((s, i) => `
-          <div class="card card--page service reveal"><span class="icon-badge">${UI.serviceIcon(i)}</span><h3 class="title">${UI.text(s.title)}</h3><p>${UI.text(s.desc || '')}</p></div>`).join('');
+          <div class="card card--page service reveal"><span class="icon-badge">${UI.iconFor(s.icon, Icons.serviceDefault(i))}</span><h3 class="title">${UI.text(s.title)}</h3><p>${UI.text(s.desc || '')}</p></div>`).join('');
       }
 
       const rows = [];
@@ -80,12 +81,12 @@ const CollabPage = (() => {
     'collab-message': 'Write a message so I know what you need.',
     'c-email': 'Enter a valid email address so I can reply.',
   };
-  function setError(id, on) {
+  function setError(id, on, message) {
     const wrap = document.getElementById('f-' + id);
     const input = document.getElementById(id);
     if (!wrap || !input) return;
     wrap.classList.toggle('has-error', on);
-    document.getElementById(id + '-err').textContent = on ? MESSAGES[id] : '';
+    document.getElementById(id + '-err').textContent = on ? (message || MESSAGES[id]) : '';
     if (on) { input.setAttribute('aria-invalid', 'true'); input.setAttribute('aria-describedby', id + '-err'); }
     else { input.removeAttribute('aria-invalid'); input.removeAttribute('aria-describedby'); }
   }
@@ -120,8 +121,14 @@ const CollabPage = (() => {
       ok.classList.remove('hidden');
       ok.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (ex) {
-      err.textContent = (ex.message || 'The message was not sent.') + ' Check the form and send it again.';
-      err.classList.remove('hidden');
+      // The server names the fields it did not accept. Show each one next to its field.
+      const map = { name: 'c-name', subject: 'c-subject', message: 'collab-message', email: 'c-email' };
+      let shown = false;
+      if (ex.fields) Object.entries(ex.fields).forEach(([k, msg]) => { if (map[k]) { setError(map[k], true, msg); shown = true; } });
+      if (!shown) {
+        err.textContent = ex.message || 'The message was not sent. Please try again.';
+        err.classList.remove('hidden');
+      }
     } finally {
       btn.disabled = false; btn.removeAttribute('aria-busy');
       btn.querySelectorAll('.btn__text').forEach(t => { t.textContent = 'Send message'; });
