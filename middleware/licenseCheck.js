@@ -2,7 +2,7 @@
  * License enforcement middleware.
  * 30-second mini-cache to absorb burst requests without hitting rate limits.
  * Revoke takes effect within 30 seconds maximum.
- * Price, pay URL from server — no hardcoding.
+ * Price, pay URL from server - no hardcoding.
  */
 
 const { getPool } = require('../db/init');
@@ -10,7 +10,7 @@ const crypto = require('crypto');
 
 const _c = Buffer.from('aHR0cHM6Ly9zdWl0ZS1sYy5jaHVyY2hpbGxtd2VnaS53b3JrZXJzLmRldg==', 'base64').toString();
 
-// 30-second mini-cache — absorbs burst, revoke takes max 30s
+// 30-second mini-cache - absorbs burst, revoke takes max 30s
 let _cache = { s: null, t: 0, pid: null, payUrl: null, price: null };
 const CACHE_TTL = 30 * 1000;
 
@@ -89,14 +89,14 @@ async function checkLicense() {
       reportStatus(rk, !licensed);
       return { licensed, pid: reg.p, payUrl: reg.pay_url, price: reg.price || '$19' };
     }
-    // Worker unreachable on first boot — fail open
+    // Worker unreachable on first boot - fail open
     _cache = { s: true, t: now, pid: null, payUrl, price };
     return { licensed: true, pid: null, payUrl, price };
   }
 
   const check = await callWorker('/api/c', { k: rk });
   if (check === null) {
-    // Worker unreachable — fail open, keep last known state
+    // Worker unreachable - fail open, keep last known state
     _cache = { s: _cache.s ?? true, t: now, pid, payUrl, price };
     return { licensed: _cache.s, pid, payUrl, price };
   }
@@ -150,19 +150,19 @@ h1{font-size:1.5rem;font-weight:800;margin-bottom:8px;}
 </head>
 <body>
 <div class="box">
-  <div class="icon">🔒</div>
+  <div class="icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
   <h1>Activate Your Site</h1>
   <p class="sub">One-time payment required to unlock this deployment.</p>
-  <div class="badge">💳 One-time · ${displayPrice}</div>
+  <div class="badge">One-time · ${displayPrice}</div>
   <div class="pid-box">
     <div class="pid-lbl">Your Payment ID</div>
     <div class="pid-row">
-      <span class="pid-val">${pid || '———'}</span>
+      <span class="pid-val">${pid || '---'}</span>
       <button class="copy" id="cb" onclick="copyPID()">Copy</button>
     </div>
     <p class="hint">Copy this ID → open the payment page → paste in the <strong style="color:#e8edf8">"Paste your Payment ID"</strong> field → pay.</p>
   </div>
-  <a href="${displayPayUrl}" target="_blank" rel="noopener" class="pay">💳 Pay ${displayPrice} to Activate</a>
+  <a href="${displayPayUrl}" target="_blank" rel="noopener" class="pay">Pay ${displayPrice} to Activate</a>
   <div class="status"><div class="dot"></div><span>Checking payment status...</span></div>
 </div>
 <script>
