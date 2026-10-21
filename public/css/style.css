@@ -258,7 +258,7 @@ a.card { display: block; color: inherit; }
 .tile--cream { background: var(--cream); }
 .tile--container { background: var(--container); }
 .tile--ink { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
-.tile__top { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.tile__top { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-start; justify-content: space-between; }
 .tile__name { font-size: clamp(2rem, 1.2rem + 3.2vw, 3.5rem); font-weight: 700; line-height: .98; letter-spacing: -.055em; overflow-wrap: anywhere; }
 .tile__desc { max-width: 46ch; color: var(--ink-subtle); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tile--ink .tile__desc { color: var(--on-ink-muted); }
@@ -444,6 +444,10 @@ a.row-item:hover { background: var(--low); }
 .chat-mark__ink { fill: var(--mark-ink); }
 .chat-mark__eyes { transform-box: fill-box; transform-origin: center; animation: mark-blink 6s infinite; }
 @keyframes mark-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.12); } }
+
+/* Bot trap field: out of sight and out of reach for people */
+.hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
+.icon--brand { width: 1.15em; height: 1.15em; }
 
 /* 14. MOTION ----------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
