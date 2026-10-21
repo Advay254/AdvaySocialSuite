@@ -37,7 +37,7 @@
     ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.3); border-radius: 2px; }
     input, textarea, select { font-family: inherit; }
 
-    /* Login screen — fixed so it doesn't stack with admin panel */
+    /* Login screen - fixed so it doesn't stack with admin panel */
     #login-screen {
       position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
       background: var(--bg); z-index: 9999;
@@ -78,6 +78,30 @@
     }
     .sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
 
+
+
+    /* Icons, icon picker, list editors, icon style cards */
+    .icon { width: 1.1em; height: 1.1em; flex-shrink: 0; display: inline-block; vertical-align: -0.15em; }
+    .ico { display: inline-flex; vertical-align: middle; }
+    .ip-overlay { position: fixed; inset: 0; z-index: 10200; background: rgba(2,6,23,.72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+    .ip-panel { width: min(640px, 100%); max-height: min(80vh, 640px); display: flex; flex-direction: column; background: #0a0f23; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .ip-head { display: flex; gap: 10px; align-items: center; padding: 12px; border-bottom: 1px solid var(--border); }
+    .ip-body { overflow-y: auto; padding: 12px; overscroll-behavior: contain; }
+    .ip-group { margin: 6px 0 4px; font-size: 11px; font-weight: 700; color: #7a8499; letter-spacing: .5px; text-transform: uppercase; }
+    .ip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 6px; margin-bottom: 12px; }
+    .ip-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px; border-radius: 10px; border: 1px solid transparent; background: rgba(255,255,255,.03); color: #e8edf8; font-size: 10px; cursor: pointer; overflow-wrap: anywhere; text-align: center; }
+    .ip-item .icon { width: 24px; height: 24px; }
+    .ip-item:hover, .ip-item:focus-visible { border-color: #00e5ff; outline: none; }
+    .ip-item[aria-pressed="true"] { border-color: #00e5ff; background: rgba(0,229,255,.1); }
+    .pack-option { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; background: rgba(255,255,255,.02); text-align: left; color: #e8edf8; }
+    .pack-option[aria-checked="true"] { border-color: #00e5ff; background: rgba(0,229,255,.06); }
+    .pack-option:focus-visible { outline: 2px solid #00e5ff; outline-offset: 2px; }
+    .pack-row { display: flex; flex-wrap: wrap; gap: 10px; color: #b0bcd4; }
+    .pack-row .icon { width: 20px; height: 20px; }
+    .le { display: grid; gap: 10px; }
+    .le-row { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: rgba(255,255,255,.02); }
+    .le-row .le-fields { display: grid; gap: 8px; min-width: 0; }
+    .le-actions { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
 
     /* Sticky action bar for the Settings screen */
     .save-bar { position: sticky; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 14px; max-width: 42rem; margin-top: 16px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); background: var(--bg); border-top: 1px solid var(--border); }
@@ -307,10 +331,10 @@
     <!-- ── DASHBOARD ─────────────────────────────────── -->
     <div id="section-dashboard" class="section active section-pad">
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="stat-card"><div class="stat-n" id="s-repos">—</div><div class="stat-l">Repositories</div></div>
-        <div class="stat-card"><div class="stat-n" id="s-tools">—</div><div class="stat-l">Live Tools</div></div>
-        <div class="stat-card"><div class="stat-n" id="s-collabs">—</div><div class="stat-l">New Collabs</div></div>
-        <div class="stat-card"><div class="stat-n" id="s-suggestions">—</div><div class="stat-l">Suggestions</div></div>
+        <div class="stat-card"><div class="stat-n" id="s-repos">-</div><div class="stat-l">Repositories</div></div>
+        <div class="stat-card"><div class="stat-n" id="s-tools">-</div><div class="stat-l">Live Tools</div></div>
+        <div class="stat-card"><div class="stat-n" id="s-collabs">-</div><div class="stat-l">New Collabs</div></div>
+        <div class="stat-card"><div class="stat-n" id="s-suggestions">-</div><div class="stat-l">Suggestions</div></div>
       </div>
       <div class="a-card">
         <div class="a-card-head"><span class="text-sm font-semibold text-white">Page Views (30 days)</span></div>
@@ -343,9 +367,9 @@
               <div class="a-group"><label class="a-label">Buy Me Coffee URL</label><input id="pf-bmc_url" class="a-input" placeholder="https://buymeacoffee.com/..."></div>
             </div>
             <div class="a-group"><label class="a-label">Skills <span style="font-size:10px;opacity:.5">(comma separated)</span></label><input id="pf-skills" class="a-input" placeholder="n8n, Node.js, Supabase, ..."></div>
-            <div class="a-group"><label class="a-label">Principles <span style="font-size:10px;opacity:.5">(comma separated — shown on About page)</span></label><input id="pf-principles" class="a-input" placeholder="Build things that work, Keep them simple, ..."></div>
+            <div class="a-group"><label class="a-label">Principles <span style="font-size:10px;opacity:.5">(comma separated - shown on About page)</span></label><input id="pf-principles" class="a-input" placeholder="Build things that work, Keep them simple, ..."></div>
             <button type="submit" class="btn-a-primary" id="profile-save-btn">Save Profile</button>
-            <p id="profile-msg" class="hidden text-emerald text-xs mt-2">✓ Saved.</p>
+            <p id="profile-msg" class="hidden text-emerald text-xs mt-2">Saved.</p>
           </form>
         </div>
       </div>
@@ -398,21 +422,21 @@
         </div>
         <div class="a-card-body">
           <div class="tab-bar" style="flex-wrap:wrap;gap:2px 0;">
-            <button class="tab-btn active" onclick="Admin.switchTab('s-general',this)">⚙️ General</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-homepage',this)">🏠 Home Page</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-collab',this)">🤝 Hire &amp; Collab</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-pages',this)">📄 Other Pages</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-about',this)">👤 About Page</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-chat',this)">🤖 AI Chat</button>
-            <button class="tab-btn" onclick="Admin.switchTab('s-notify',this)">🔔 Notifications</button>
+            <button class="tab-btn active" onclick="Admin.switchTab('s-general',this)"><span class="ico" data-ico="settings"></span> General</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-homepage',this)"><span class="ico" data-ico="home"></span> Home Page</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-collab',this)"><span class="ico" data-ico="briefcase"></span> Hire &amp; Collab</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-pages',this)"><span class="ico" data-ico="file"></span> Other Pages</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-about',this)"><span class="ico" data-ico="user"></span> About Page</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-chat',this)"><span class="ico" data-ico="bot"></span> AI Chat</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-notify',this)"><span class="ico" data-ico="bell"></span> Notifications</button>
           </div>
 
           <!-- GENERAL -->
           <div id="tab-s-general" class="tab-content active">
             <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;"><strong style="color:#e8edf8;">Site Name</strong> appears in the browser tab title. It is separate from your display name which is set in Profile.</p>
             <div class="a-group"><label class="a-label">Site Name <span style="font-size:10px;opacity:.5">(browser tab)</span></label><input id="s-site_name" class="a-input" placeholder="AdvaySocialSuite"></div>
-            <div class="a-group"><label class="a-label">Site Tagline <span style="font-size:10px;opacity:.5">(short phrase — what you do)</span></label><input id="s-site_tagline" class="a-input" placeholder="Build. Automate. Deploy."></div>
-            <div class="a-group"><label class="a-label">Meta Description <span style="font-size:10px;opacity:.5">(Google search snippet — keep under 160 chars)</span></label><input id="s-meta_description" class="a-input" placeholder="Portfolio and tools hub — automation engineer."></div>
+            <div class="a-group"><label class="a-label">Site Tagline <span style="font-size:10px;opacity:.5">(short phrase - what you do)</span></label><input id="s-site_tagline" class="a-input" placeholder="Build. Automate. Deploy."></div>
+            <div class="a-group"><label class="a-label">Meta Description <span style="font-size:10px;opacity:.5">(Google search snippet - keep under 160 chars)</span></label><input id="s-meta_description" class="a-input" placeholder="Portfolio and tools hub - automation engineer."></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
               <div class="a-group"><label class="a-label">Repo Count Stat <span style="font-size:10px;opacity:.5">(shown on homepage)</span></label><input type="number" id="s-repo_count" class="a-input" placeholder="26"></div>
               <div class="a-group"><label class="a-label">Years Exp Stat <span style="font-size:10px;opacity:.5">(shown on homepage)</span></label><input type="number" id="s-years_exp" class="a-input" placeholder="3"></div>
@@ -426,6 +450,25 @@
               <div class="ai-err" data-for="accent_color" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
               <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">Type a hex colour such as #0b7285 or click the swatch to pick one. Text colour on buttons and the light and dark versions are adjusted automatically so everything stays readable.</p>
             </div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Icon style</div>
+            <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-top:0;margin-bottom:10px;">Every icon on your public site uses one style. Pick the one that suits your brand. The change goes live when you press Save Settings.</p>
+            <input type="hidden" id="s-icon_pack">
+            <div id="icon-pack-list" role="radiogroup" aria-label="Icon style" style="display:grid;gap:10px;"></div>
+            <div class="ai-err" data-for="icon_pack" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Your own icons</div>
+            <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-top:0;margin-bottom:10px;">Upload an SVG up to 10 KB. It is cleaned automatically and drawn in your site colours. You can then pick it anywhere you choose an icon.</p>
+            <div id="custom-icons-list" style="display:grid;gap:8px;margin-bottom:12px;"></div>
+            <div class="a-group"><label class="a-label" for="ci-name">Icon name</label><input id="ci-name" class="a-input" maxlength="40" placeholder="For example Rocket"></div>
+            <div class="a-group"><label class="a-label" for="ci-file">SVG file</label><input type="file" id="ci-file" accept=".svg,image/svg+xml" class="a-input"></div>
+            <div class="a-group"><label class="a-label" for="ci-svg">Or paste the SVG code</label><textarea id="ci-svg" class="a-textarea" rows="5" spellcheck="false"></textarea><div class="ai-err" data-for="ci" role="alert" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
+            <button type="button" class="btn-a-ghost" id="ci-add">Add icon</button>
+
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Other websites allowed to use your API</div>
+            <div class="a-group"><label class="a-label" for="s-allowed_origins">Allowed origins</label><input id="s-allowed_origins" class="a-input" placeholder="https://example.com, https://app.example.com" autocomplete="off" spellcheck="false">
+              <div class="ai-err" data-for="allowed_origins" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
+              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">Leave empty unless you build another site that reads this one. Separate several with commas. Only the website address, no path.</p></div>
           </div>
 
           <!-- HOME PAGE -->
@@ -445,25 +488,25 @@
             <div class="a-group"><label class="a-label">Section Heading <span style="font-size:10px;opacity:.5">(e.g. "n8n Templates" or "Automation Workflows")</span></label><input id="s-templates_label" class="a-input" placeholder="n8n Templates"></div>
             <div class="a-group"><label class="a-label">Show on homepage?</label>
               <select id="s-templates_visible" class="a-input" style="appearance:none;">
-                <option value="1">Yes — Show on homepage</option>
-                <option value="0">No — Hide from homepage</option>
+                <option value="1">Yes - Show on homepage</option>
+                <option value="0">No - Hide from homepage</option>
               </select>
             </div>
           </div>
 
           <!-- HIRE & COLLAB -->
           <div id="tab-s-collab" class="tab-content">
-            <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Everything visitors see on the Collaborate/Hire Me page. <strong style="color:#e8edf8;">Location</strong> is pulled automatically from your Profile — no need to enter it here.</p>
+            <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Everything visitors see on the Collaborate/Hire Me page. <strong style="color:#e8edf8;">Location</strong> is pulled automatically from your Profile - no need to enter it here.</p>
             <div class="a-group"><label class="a-label">Page Subtitle <span style="font-size:10px;opacity:.5">(line under "COLLABORATE" heading)</span></label><input id="s-collab_subtitle" class="a-input" placeholder="Got a project idea? Let's talk."></div>
-            <div class="a-group"><label class="a-label">Form Intro Text <span style="font-size:10px;opacity:.5">(short paragraph above the contact form · max 220 chars)</span></label><textarea id="s-collab_intro" class="a-textarea" rows="3" maxlength="220" placeholder="I build automation systems, bots, and web tools — remote only..."></textarea><div style="text-align:right;font-size:10px;color:#7a8499;" id="collab-intro-count"></div></div>
-            <div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Quick Info Sidebar — 3 Lines</div>
+            <div class="a-group"><label class="a-label">Form Intro Text <span style="font-size:10px;opacity:.5">(short paragraph above the contact form · max 220 chars)</span></label><textarea id="s-collab_intro" class="a-textarea" rows="3" maxlength="220" placeholder="I build automation systems, bots, and web tools - remote only..."></textarea><div style="text-align:right;font-size:10px;color:#7a8499;" id="collab-intro-count"></div></div>
+            <div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Quick Info Sidebar - 3 Lines</div>
             <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">These appear in the sidebar next to the contact form.</p>
-            <div class="a-group"><label class="a-label">Line 1 ⚡ <span style="font-size:10px;opacity:.5">(response time)</span></label><input id="s-collab_qi_1" class="a-input" placeholder="Usually responds within 24 hours"></div>
-            <div class="a-group"><label class="a-label">Line 2 🛠️ <span style="font-size:10px;opacity:.5">(your specialty)</span></label><input id="s-collab_qi_2" class="a-input" placeholder="Specializes in free-tier, zero-cost production systems"></div>
-            <div class="a-group"><label class="a-label">Line 3 🎯 <span style="font-size:10px;opacity:.5">(preferred project type)</span></label><input id="s-collab_qi_3" class="a-input" placeholder="Prefers small-to-medium scoped projects with clear goals"></div>
-            <div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What I Work On — Service Cards</div>
-            <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">JSON array of cards shown above the form. Each needs: <code style="font-family:'JetBrains Mono',monospace;color:#00e5ff;font-size:10px;">{"icon":"⚙️","title":"Name","desc":"Description"}</code></p>
-            <div class="a-group"><label class="a-label">Services JSON</label><textarea id="s-collab_services" class="a-textarea" rows="10" placeholder='[{"icon":"⚙️","title":"Automation Systems","desc":"n8n workflows..."}]'></textarea></div>
+            <div class="a-group"><label class="a-label">Line 1 <span style="font-size:10px;opacity:.5">(response time)</span></label><input id="s-collab_qi_1" class="a-input" placeholder="Usually responds within 24 hours"></div>
+            <div class="a-group"><label class="a-label">Line 2 <span style="font-size:10px;opacity:.5">(your specialty)</span></label><input id="s-collab_qi_2" class="a-input" placeholder="Specializes in free-tier, zero-cost production systems"></div>
+            <div class="a-group"><label class="a-label">Line 3 <span style="font-size:10px;opacity:.5">(preferred project type)</span></label><input id="s-collab_qi_3" class="a-input" placeholder="Prefers small-to-medium scoped projects with clear goals"></div>
+            <div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What I Work On - Service Cards</div>
+            <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">Cards shown above the contact form. Pick an icon, then write a short title and description.</p>
+            <div class="a-group"><span class="a-label">Service cards</span><div class="le" data-target="s-collab_services"></div><textarea id="s-collab_services" style="display:none" aria-hidden="true" tabindex="-1"></textarea></div>
           </div>
 
           <!-- OTHER PAGES -->
@@ -476,9 +519,9 @@
           <!-- ABOUT PAGE -->
           <div id="tab-s-about" class="tab-content">
             <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Controls the "What I Build" cards and fun fact on the About page. Your name, bio, avatar, skills, and social links are all set in <strong style="color:#e8edf8;">Profile</strong>.</p>
-            <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What I Build — Specialization Cards</div>
-            <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">JSON array. Each item: <code style="font-family:'JetBrains Mono',monospace;color:#00e5ff;font-size:10px;">{"icon":"⚙️","title":"Title","desc":"Description"}</code></p>
-            <div class="a-group"><label class="a-label">Specializations JSON</label><textarea id="s-specializations" class="a-textarea" rows="10" placeholder='[{"icon":"⚙️","title":"Workflow Engineering","desc":"Description here..."}]'></textarea></div>
+            <div style="margin-bottom:8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">What I Build - Specialization Cards</div>
+            <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">Cards that describe what you build. Pick an icon, then write a short title and description.</p>
+            <div class="a-group"><span class="a-label">Specialization cards</span><div class="le" data-target="s-specializations"></div><textarea id="s-specializations" style="display:none" aria-hidden="true" tabindex="-1"></textarea></div>
             <div class="a-group"><label class="a-label">Fun Fact <span style="font-size:10px;opacity:.5">(italic quote shown on About page)</span></label><textarea id="s-funfact" class="a-textarea" rows="2" placeholder="If I do it twice, I automate it..."></textarea></div>
           </div>
 
@@ -554,7 +597,7 @@
 
           <!-- NOTIFICATIONS -->
           <div id="tab-s-notify" class="tab-content">
-            <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Paste your n8n webhook URL below. Every new contact form submission and suggestion will instantly fire a POST request to it — no need to log in to check.</p>
+            <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Paste your n8n webhook URL below. Every new contact form submission and suggestion will instantly fire a POST request to it - no need to log in to check.</p>
             <div class="a-group"><label class="a-label">n8n Webhook URL <span style="font-size:10px;opacity:.5">(leave blank to disable)</span></label><input id="s-webhook_url" class="a-input" placeholder="https://your-n8n.onrender.com/webhook/..."></div>
             <div style="margin-top:8px;padding:12px 14px;background:rgba(0,229,255,.03);border:1px solid rgba(0,229,255,.1);border-radius:8px;">
               <p style="font-size:11px;color:#7a8499;margin-bottom:6px;font-weight:600;color:#e8edf8;">Payload your n8n receives:</p>
@@ -625,7 +668,7 @@
   <div style="background:#0a0f23;border:1px solid rgba(0,229,255,0.2);border-radius:18px;padding:28px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;">
     <div class="flex items-center justify-between mb-6">
       <h3 id="repo-modal-title" class="text-white font-semibold text-base">Add Repository</h3>
-      <button onclick="Admin.closeModal('repo-modal')" class="text-slate-500 hover:text-white">✕</button>
+      <button onclick="Admin.closeModal('repo-modal')" class="text-slate-500 hover:text-white"><span data-ico="close"></span></button>
     </div>
     <form id="repo-form" onsubmit="Admin.saveRepo(event)">
       <input type="hidden" id="repo-edit-id">
@@ -653,12 +696,12 @@
   <div style="background:#0a0f23;border:1px solid rgba(0,229,255,0.2);border-radius:18px;padding:28px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;">
     <div class="flex items-center justify-between mb-6">
       <h3 id="tool-modal-title" class="text-white font-semibold text-base">Add Tool</h3>
-      <button onclick="Admin.closeModal('tool-modal')" class="text-slate-500 hover:text-white">✕</button>
+      <button onclick="Admin.closeModal('tool-modal')" class="text-slate-500 hover:text-white"><span data-ico="close"></span></button>
     </div>
     <form id="tool-form" onsubmit="Admin.saveTool(event)">
       <input type="hidden" id="tool-edit-id">
       <div class="grid grid-cols-4 gap-3">
-        <div class="a-group col-span-1"><label class="a-label">Icon</label><input name="icon" id="tf-icon" class="a-input" placeholder="🔧" style="font-size:22px;text-align:center;padding:6px;"></div>
+        <div class="a-group col-span-1"><label class="a-label" id="tf-icon-label">Icon</label><input type="hidden" name="icon" id="tf-icon"><button type="button" class="btn-a-ghost" id="tf-icon-btn" aria-labelledby="tf-icon-label" style="width:100%;height:46px;display:flex;align-items:center;justify-content:center;gap:8px;"><span id="tf-icon-preview" style="font-size:22px;display:inline-flex;"></span><span style="font-size:11px;">Choose</span></button></div>
         <div class="a-group col-span-3"><label class="a-label">Title *</label><input name="title" id="tf-title" class="a-input" required placeholder="SkyluxMovies"></div>
       </div>
       <div class="a-group"><label class="a-label">URL</label><input name="url" id="tf-url" class="a-input" placeholder="https://..."></div>
@@ -694,7 +737,7 @@
   <div style="background:#0a0f23;border:1px solid rgba(0,229,255,0.2);border-radius:18px;padding:28px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;">
     <div class="flex items-center justify-between mb-6">
       <h3 id="template-modal-title" class="text-white font-semibold text-base">Add Template</h3>
-      <button onclick="Admin.closeModal('template-modal')" class="text-slate-500 hover:text-white">✕</button>
+      <button onclick="Admin.closeModal('template-modal')" class="text-slate-500 hover:text-white"><span data-ico="close"></span></button>
     </div>
     <form id="template-form" onsubmit="Admin.saveTemplate(event)">
       <input type="hidden" id="template-edit-id">
@@ -719,7 +762,7 @@
 <!-- Toast -->
 <div id="a-toast" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:500;display:none;"></div>
 
-<!-- Hardcoded BMC support button for Advay — always present in admin -->
+<!-- Hardcoded BMC support button for Advay - always present in admin -->
 <a href="https://www.buymeacoffee.com/advay254" target="_blank" rel="noopener"
    style="position:fixed;bottom:20px;right:20px;z-index:9999;width:44px;height:44px;border-radius:50%;
           background:linear-gradient(135deg,#ffd54f,#ffb300);display:flex;align-items:center;
@@ -727,9 +770,11 @@
           box-shadow:0 4px 16px rgba(255,213,79,.4);transition:transform .2s ease;"
    title="Support Advay on Buy Me a Coffee"
    onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">
-  ☕
+  <span data-ico="coffee" data-ico-size="22" style="display:inline-flex;"></span>
 </a>
 
+<script src="/js/icons.js"></script>
+<script src="/js/icon-picker.js"></script>
 <script src="/js/admin.js"></script>
 </body>
 </html>
