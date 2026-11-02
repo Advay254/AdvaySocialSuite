@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.0
+
+### New look
+- A new public design: floating pill header, full screen menu, glow cards, stacked service cards, big type with a coloured full stop, a typing call to action pill and an accent coloured footer block. Nova is no longer referenced.
+- Inner pages open with a big heading and a short intro, then filter chips, search and Load more (6 at a time).
+- Real page addresses (`/tools`, `/about` and so on) with the History API. Old `#/tools` links are sent to `/tools`. The server fills in the title, description and active theme for every page, and serves `/sitemap.xml` and `/robots.txt`.
+- New FAQ page, edited in Settings, Home Page. It is hidden, with its menu entry, while there are no questions.
+- Command bar (Ctrl or Cmd + K, or the search button): pages, tools and quick actions.
+- Motion: direction aware page changes, scroll restore on Back, count up numbers, hover and tap ripples, spring toasts, a checkmark that draws itself, floating form labels. All of it stops for visitors who prefer reduced motion.
+
+### Theme engine
+- Six built in themes (Cobalt Hour, Ember Line, Mint Circuit, Violet Dusk, Rose Noir, Glacier Signal) plus up to 12 of your own. A custom theme is two colours and a mood. The rest is calculated and checked for contrast, with plain language warnings and an advanced override.
+- Modes: fixed, shift on a timer (5 seconds to one day) or random per visit. Everyone sees the same theme at the same moment, because the server clock decides. Colours change smoothly through registered colour properties. First paint is already in the right theme.
+- Optional visitor panel: pause, change the interval, pick a theme for the visit.
+- The accent colour setting is gone. A colour saved in 1.0.1 or 1.1.0 becomes a custom theme called My colours, set as the fixed theme, once.
+
+### Admin
+- New Themes tab. The Home Page tab edits sections (on or off, order), rotating words, typing phrases and the FAQ. New fields: public email address, FAQ and repositories page text.
+- The hero cylinder words field is replaced by the rotating words list, seeded from the old words.
+
+### Removed
+- Satoshi fonts, the old stylesheet, `public/index.html` (now `views/app.html`), the accent colour field and the cylinder labels field.
+
 ## 1.1.0
 
 ### Icons

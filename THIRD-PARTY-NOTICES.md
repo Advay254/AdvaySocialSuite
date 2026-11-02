@@ -2,11 +2,11 @@
 
 ## Fonts
 
-Satoshi (weights 400, 500 and 700), self hosted from `public/fonts`.
+Inter, loaded from `public/fonts/inter-var.woff2` (variable font, weights 100 to 900).
 
-- Designer: Indian Type Foundry, distributed through Fontshare.
-- Licence: Fontshare publishes Satoshi under the ITF Free Font License, which as published allows free personal and commercial use, including embedding on websites. The font files must not be sold or passed on as a standalone font.
-- Status of this check: the licence text could not be opened from the environment these versions were built in. Please read the current licence on the Fontshare website before you rely on it.
+- Designer: Rasmus Andersson and the Inter Project Authors, https://github.com/rsms/inter
+- Licence: SIL Open Font License 1.1, https://openfontlicense.org. Copyright (c) 2016 The Inter Project Authors. The licence allows use, embedding and redistribution, including on websites, as long as the copyright notice and licence travel with the font.
+- Status: the font file is not part of this package, because the environment these changes were made in could not download it. Add the file to `public/fonts` (and the OFL.txt that comes with it). Until then visitors see their system font.
 
 ## Icons (public/icons)
 
@@ -31,8 +31,8 @@ MIT licence text for the MIT items above: permission is granted, free of charge,
 | `purify-3.4.0.min.js` | DOMPurify, Cure53 | Apache-2.0 or MPL-2.0 |
 | `marked-18.0.2.umd.js` | marked | MIT |
 
-Both are served from this site, not from a CDN. To update one, replace the file, change its name to the new version and update `public/index.html`.
+Both are served from this site, not from a CDN. To update one, replace the file, change its name to the new version and update `views/app.html`.
 
 ## Design
 
-The visual design follows the Nova design template (colours, type scale, radii, spacing, button and navigation behaviour). No text, images, logos or code from the template are included.
+The visual design is original to this project. Its colour themes and layout are described in `theme-preview.html` and README.md. No text, images, logos or code from other sites are included.

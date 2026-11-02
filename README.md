@@ -129,11 +129,19 @@ npm run security-check -- https://your-site.example --admin-path=your-secret-pat
 
 Add `--limits` to also confirm the form rate limit (your address is then limited for 15 minutes). Behind more than one proxy (for example Cloudflare in front of your host), raise `trust proxy` in `server.js` so limits see the visitor address.
 
-## Appearance
+## Appearance and themes
 
-The public site has one warm light look with black bands, there is no theme switch. The accent colour is set in Settings, General. Text colour on buttons, a darker accent for text on cream and a lighter accent for text on black are calculated automatically, so any colour stays readable.
+The public site has one design and many colour themes. Open Settings, Themes to choose how it is coloured.
 
-Fonts are self hosted from `public/fonts` (see THIRD-PARTY-NOTICES.md).
+- **Shift between themes**: the site changes theme on a timer from 5 seconds to one day. Everyone sees the same theme at the same moment, because the server clock decides, not the visitor's device. Choose which themes take part.
+- **One fixed theme**, or **random per visit** (never the same theme twice in a row for one browser).
+- **Your own themes**: up to 12. Give two colours and a mood (very dark, dark or light). The background, cards, text and button text are calculated and checked for contrast. The Advanced option sets any colour by hand and warns when contrast is too low.
+- **Visitor panel**: lets visitors pause the rotation, change its speed or pin a theme for their visit. It never changes what other visitors see. Switch it off in the same tab.
+- Visitors who prefer reduced motion see the first theme of the rotation and nothing moves.
+
+Run `npm run check:themes` to test the colour rules and the timing rules without a browser.
+
+Fonts: the site uses Inter, self hosted. Put `inter-var.woff2` (the variable font from https://github.com/rsms/inter/releases, under the SIL Open Font License) in `public/fonts`. Until it is there the site uses the visitor's system font.
 
 ## Reply length
 

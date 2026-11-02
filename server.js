@@ -3,7 +3,7 @@ const express = require('express');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const { initDB } = require('./db/init');
+const { initDB, getPool } = require('./db/init');
 const publicRoutes = require('./routes/public');
 const adminRoutes = require('./routes/admin');
 const chatRoute = require('./routes/chat');
@@ -15,6 +15,7 @@ const compress = require('./middleware/compress');
 const limiters = require('./middleware/limiters');
 const { requestId, notFoundApi, errorHandler } = require('./middleware/errorHandler');
 const { login: adminLogin } = require('./middleware/adminLogin');
+const { createShell, NOT_APP } = require('./lib/shell');
 
 const app = express();
 app.disable('x-powered-by');
@@ -73,10 +74,31 @@ app.use('/api/admin', limiters.admin, adminRoutes);
 app.use('/api/chat', chatRoute);
 app.use('/api', notFoundApi);
 
-// ─── SPA Fallback ─────────────────────────────────────────────────────────────
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/') || req.path === `/${ADMIN_PATH}`) return;
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// ─── Search engine files ──────────────────────────────────────────────────────
+const shell = createShell({ templateFile: path.join(__dirname, 'views', 'app.html'), publicDir: path.join(__dirname, 'public'), getDb: getPool });
+
+app.get('/sitemap.xml', async (req, res, next) => {
+  try { res.type('application/xml').set('Cache-Control', 'no-cache').send(await shell.sitemap(req)); } catch (err) { next(err); }
+});
+app.get('/robots.txt', (req, res) => {
+  res.type('text/plain').set('Cache-Control', 'no-cache').send(shell.robots(req));
+});
+
+// ─── App shell for every page address ─────────────────────────────────────────
+// Every page of the site is the same HTML file with the active theme, title and description filled in
+// for this request. It is never cached. Files and API paths never get the shell, a missing file is a 404.
+app.get('*', async (req, res, next) => {
+  const p = req.path;
+  if (p === `/${ADMIN_PATH}` || p.startsWith(`/${ADMIN_PATH}/`)) return next();
+  if (NOT_APP.test(p) || /\.[A-Za-z0-9]{1,8}$/.test(p)) return res.status(404).type('text/plain').send('Not found');
+  let out;
+  try { out = await shell.render(req, Date.now()); }
+  catch (err) {
+    // The page still opens when the database is unreachable: the site script shows its own error state.
+    console.error(`[${req.id}] page shell rendered without settings:`, err && err.message);
+    try { out = await shell.render(req, Date.now(), { map: {}, profile: null }); } catch (e2) { return next(e2); }
+  }
+  res.status(out.status).set({ 'Cache-Control': 'no-store', 'Content-Type': 'text/html; charset=utf-8' }).send(out.html);
 });
 
 // ─── Errors: one handler, nothing internal is ever sent to a client ───────────
