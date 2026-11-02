@@ -1,9 +1,10 @@
 const router = require('../lib/safeRouter')();
 const adminAuth = require('../middleware/adminAuth');
 const { getPool } = require('../db/init');
-const { isInternalKey, normaliseHex, ADMIN_TEXT_LIMITS, ADMIN_SETTING_KEYS, ICON_PACKS } = require('../lib/settingsPolicy');
+const { isInternalKey, ADMIN_TEXT_LIMITS, ADMIN_SETTING_KEYS, LEGACY_IGNORED_KEYS, HOME_SECTIONS, ICON_PACKS } = require('../lib/settingsPolicy');
 const aiConfig = require('../lib/aiConfig');
 const adminAiRoutes = require('./adminAi');
+const adminThemeRoutes = require('./adminThemes');
 const validate = require('../lib/validate');
 const iconVocab = require('../lib/iconVocab');
 const { sanitize, SvgRejected } = require('../lib/svgSanitizer');
@@ -18,6 +19,9 @@ router.use(adminAuth);
 
 // AI provider settings (own validated routes)
 router.use('/ai', adminAiRoutes);
+
+// Theme engine settings (own validated routes)
+router.use('/themes', adminThemeRoutes);
 
 const id = (req) => validate.int(req.params.id, { min: 1, max: 2147483647, name: 'id' });
 const NO_EMOJI = { stripEmoji: true };
@@ -55,6 +59,61 @@ router.get('/settings', async (req, res) => {
   res.json(s);
 });
 
+
+// ─── Lists edited in the Home tab ────────────────────────────────────────────
+function parseList(value, what) {
+  if (value.trim() === '') return [];
+  let arr;
+  try { arr = JSON.parse(value); } catch { throw new Error(`This ${what} list is not valid. Open the editor and save again.`); }
+  if (!Array.isArray(arr)) throw new Error(`This ${what} list is not valid. Open the editor and save again.`);
+  return arr;
+}
+function checkTextList(value, { maxItems, maxLen, what }) {
+  const arr = parseList(value, what);
+  if (arr.length > maxItems) throw new Error(`Use at most ${maxItems} items.`);
+  const out = [];
+  arr.forEach(item => {
+    if (typeof item !== 'string') throw new Error(`Each ${what} must be text.`);
+    const t = iconVocab.stripEmoji(validate.clean(item, false));
+    if (t.length > maxLen) throw new Error(`Each ${what} can have at most ${maxLen} characters.`);
+    if (t) out.push(t);
+  });
+  return JSON.stringify(out);
+}
+// Only known section ids, each once. The hero is always on. Sections missing from the list are added at the end.
+function checkHomeSections(value) {
+  const arr = parseList(value, 'sections');
+  if (arr.length > 24) throw new Error('This sections list is not valid. Open the editor and save again.');
+  const seen = new Set();
+  const out = [];
+  arr.forEach(item => {
+    if (!item || typeof item !== 'object') return;
+    const id = String(item.id || '');
+    if (!HOME_SECTIONS.includes(id) || seen.has(id)) return;
+    seen.add(id);
+    out.push({ id, on: id === 'hero' ? true : item.on !== false && item.on !== 'false' && item.on !== 0 });
+  });
+  HOME_SECTIONS.forEach(id => { if (!seen.has(id)) out.push({ id, on: true }); });
+  return JSON.stringify(out);
+}
+function checkFaqItems(value) {
+  const arr = parseList(value, 'questions');
+  if (arr.length > 30) throw new Error('Use at most 30 questions.');
+  const out = [];
+  arr.forEach(item => {
+    if (!item || typeof item !== 'object') throw new Error('Each question needs an answer.');
+    const q = iconVocab.stripEmoji(validate.clean(item.q == null ? '' : String(item.q), false));
+    const a = iconVocab.stripEmoji(validate.clean(item.a == null ? '' : String(item.a), true));
+    if (!q && !a) return;
+    if (!q) throw new Error('Every answer needs a question.');
+    if (!a) throw new Error('Every question needs an answer.');
+    if (q.length > 160) throw new Error('Questions can have at most 160 characters.');
+    if (a.length > 1200) throw new Error('Answers can have at most 1200 characters.');
+    out.push({ q, a, on: !(item.on === false || item.on === 'false' || item.on === 0) });
+  });
+  return JSON.stringify(out);
+}
+
 const ORIGIN_RE = /^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/;
 
 // Validates one setting. Returns the value to store or throws an Error with a plain message.
@@ -62,12 +121,6 @@ function checkSetting(key, raw) {
   if (raw !== null && typeof raw !== 'string' && typeof raw !== 'number') throw new Error('Enter text.');
   const value = raw === null ? '' : String(raw);
   switch (key) {
-    case 'accent_color': {
-      if (value === '') return '#b98b6e';
-      const hex = normaliseHex(value);
-      if (!hex) throw new Error('Accent colour must be a hex value such as #b98b6e.');
-      return hex;
-    }
     case 'icon_pack':
       if (!ICON_PACKS.includes(value)) throw new Error('Choose one of the five icon styles.');
       return value;
@@ -84,6 +137,16 @@ function checkSetting(key, raw) {
       if (list.some(o => !ORIGIN_RE.test(o))) throw new Error('Each origin must look like https://example.com with no path.');
       return list.join(', ');
     }
+    case 'contact_email': {
+      const e = validate.clean(value, false).toLowerCase();
+      if (!e) return '';
+      if (e.length > 254 || e.includes('..') || !validate.EMAIL_RE.test(e)) throw new Error('Enter a valid email address, or leave this empty.');
+      return e;
+    }
+    case 'hero_words': return checkTextList(value, { maxItems: 20, maxLen: 40, what: 'word' });
+    case 'cta_phrases': return checkTextList(value, { maxItems: 8, maxLen: 60, what: 'phrase' });
+    case 'home_sections': return checkHomeSections(value);
+    case 'faq_items': return checkFaqItems(value);
     case 'specializations':
     case 'collab_services': {
       if (value.trim() === '') return '[]';
@@ -115,12 +178,14 @@ router.put('/settings', async (req, res) => {
   const errors = {};
   const updates = [];
   for (const [k, v] of Object.entries(body)) {
-    // Internal keys, every ai_ key and anything not on the list are refused. AI settings use /api/admin/ai.
+    // Internal keys, every ai_ and theme_ key and anything not on the list are refused. AI settings use
+    // /api/admin/ai and theme settings use /api/admin/themes.
+    if (LEGACY_IGNORED_KEYS.includes(k)) continue;
     if (!ADMIN_SETTING_KEYS.includes(k)) { errors[k] = 'This setting cannot be changed here.'; continue; }
     try { updates.push([k, checkSetting(k, v === undefined ? '' : v)]); } catch (e) { errors[k] = e.message; }
   }
   if (Object.keys(errors).length) {
-    const first = errors.accent_color || errors.icon_pack || Object.values(errors)[0];
+    const first = errors.icon_pack || Object.values(errors)[0];
     throw new ApiError(400, first, 'validation', { fields: errors });
   }
   for (const [k, value] of updates) {

@@ -4,11 +4,12 @@ const { pickPublic } = require('../lib/settingsPolicy');
 const validate = require('../lib/validate');
 const iconVocab = require('../lib/iconVocab');
 const { sanitize } = require('../lib/svgSanitizer');
+const themes = require('../lib/themes');
 
 // Every query in this file is parameterised or has no input at all. Nothing from the
 // request ever becomes a table name, column name, order or limit.
 
-const PAGES = ['home', 'about', 'repos', 'tools', 'templates', 'collab'];
+const PAGES = ['home', 'about', 'repos', 'tools', 'templates', 'collab', 'faq'];
 
 router.post('/pageview', async (req, res) => {
   const { page } = validate.body(req.body, { page: { type: 'string', required: true, max: 20, enum: PAGES } });
@@ -26,6 +27,13 @@ router.get('/profile', async (req, res) => {
 router.get('/settings', async (req, res) => {
   const { rows } = await getPool().query('SELECT key, value FROM site_settings ORDER BY key');
   res.json(pickPublic(rows));
+});
+
+// The theme configuration and the server clock. Visitors use the clock to agree on the current theme
+// even when their own device clock is wrong. Nothing here is private.
+router.get('/theme', async (req, res) => {
+  const config = await themes.loadConfig(getPool());
+  res.json(themes.publicPayload(config, Date.now()));
 });
 
 router.get('/repos', async (req, res) => {
