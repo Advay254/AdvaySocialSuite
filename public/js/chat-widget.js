@@ -1,4 +1,4 @@
-/* AdvaySocialSuite 1.0.1 chat widget: assistant chat plus suggestion box. */
+/* AdvaySocialSuite 1.2.0 chat widget: assistant chat plus suggestion box. */
 const ChatWidget = (() => {
 
   // Functional interface wording that is not content. Everything the owner can edit comes from settings.
@@ -100,12 +100,12 @@ const ChatWidget = (() => {
           </div>
         </div>
         <div class="cw-panel cw-suggest hidden" id="cw-panel-suggest" role="tabpanel" aria-labelledby="cw-tab-suggest">
-          <p class="muted" style="margin-bottom:var(--space-4);font-size:var(--text-sm)">${S.suggestIntro}</p>
+          <p class="muted" style="margin-bottom:16px;font-size:14px">${S.suggestIntro}</p>
           <div class="field"><label class="label" for="cw-s-text">${S.suggestLabel}</label><textarea id="cw-s-text" class="textarea" rows="4" maxlength="1000"></textarea></div>
           <div class="field"><label class="label" for="cw-s-email">${S.suggestEmail}</label><input id="cw-s-email" class="input" type="email" maxlength="200" autocomplete="email"></div>
           <div class="hp" aria-hidden="true"><label>Website<input type="text" id="cw-s-website" tabindex="-1" autocomplete="off"></label></div>
-          <button type="button" class="btn btn--primary btn--block" id="cw-s-send">${S.suggestSubmit}</button>
-          <div id="cw-s-msg" class="notice hidden" role="status" style="margin-top:var(--space-3)"></div>
+          <button type="button" class="btn btn--primary btn--block" id="cw-s-send"><span class="btn__label">${S.suggestSubmit}</span></button>
+          <div id="cw-s-msg" class="notice hidden" role="status" style="margin-top:12px"></div>
         </div>
       </div>`;
 
@@ -156,6 +156,7 @@ const ChatWidget = (() => {
     open = true; lastFocus = document.activeElement;
     els.window.classList.remove('hidden');
     els.launcher.setAttribute('aria-expanded', 'true');
+    document.documentElement.classList.add('chat-open');
     if (narrow()) document.documentElement.classList.add('scroll-lock');
     fitViewport();
     scrollDown();
@@ -165,7 +166,7 @@ const ChatWidget = (() => {
     open = false;
     els.window.classList.add('hidden');
     els.launcher.setAttribute('aria-expanded', 'false');
-    document.documentElement.classList.remove('scroll-lock');
+    document.documentElement.classList.remove('scroll-lock', 'chat-open');
     els.launcher.focus();
   }
   function onKeydown(e) {
@@ -196,7 +197,7 @@ const ChatWidget = (() => {
     const last = !next || next.role !== m.role;
     const body = bot ? format(m.content) : `<p>${UI.esc(m.content).replace(/\n/g, '<br>')}</p>`;
     return `<div class="cw-msg ${bot ? 'cw-msg--bot' : 'cw-msg--user'}${cont ? ' cw-msg--cont' : ''}">
-      <div class="cw-bubble">${body}${m.error ? `<div><button type="button" class="btn btn--secondary btn--sm cw-retry">${UI.icon('refresh')} ${S.retry}</button></div>` : ''}</div>
+      <div class="cw-bubble">${body}${m.error ? `<div><button type="button" class="btn btn--secondary btn--sm cw-retry"><span class="btn__label">${S.retry}</span></button></div>` : ''}</div>
       ${last && m.ts ? `<div class="cw-meta"><span>${time(m.ts)}</span>${bot && !m.error && !m.local ? `<button type="button" class="cw-copy" aria-label="${S.copy}" title="${S.copy}" data-i="${messages.indexOf(m)}">${UI.icon('copy', 15)}</button>` : ''}</div>` : ''}
     </div>`;
   }
@@ -309,5 +310,9 @@ const ChatWidget = (() => {
     } finally { btn.disabled = false; }
   }
 
-  return { init };
+  // Used by the command bar.
+  function available() { return !!(els.launcher && cfg.enabled); }
+  function openFromOutside() { if (els.launcher && !open) openWin(); }
+
+  return { init, available, open: openFromOutside };
 })();

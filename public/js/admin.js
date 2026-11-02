@@ -318,18 +318,22 @@ const Admin = (() => {
   }
 
   // ─── Settings ──────────────────────────────────────────────────────────────
-  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','accent_color','icon_pack','allowed_origins','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','cylinder_labels','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact'];
+  const SETTING_KEYS = ['site_name','site_tagline','meta_description','repo_count','years_exp','contact_email','hero_words','cta_phrases','home_sections','faq_items','nav_faq','faq_subtitle','repos_subtitle','icon_pack','allowed_origins','home_subheadline','philosophy_quote','philosophy_sub','timeline_1','timeline_2','timeline_3','templates_label','templates_visible','templates_subtitle','tools_subtitle','collab_subtitle','collab_intro','collab_qi_1','collab_qi_2','collab_qi_3','collab_services','webhook_url','specializations','funfact'];
+
+  // Other scripts (the Themes tab, the Home page editors) join the settings load and save here.
+  const extensions = [];
+  const ext = { register(e) { extensions.push(e); }, markDirty: () => markDirty(), api: (...a) => api(...a), toast: (...a) => toast(...a), esc: (...a) => esc(...a), showFieldError: (...a) => showFieldError(...a) };
 
   async function loadSettings() {
     try {
       const s = await api('/api/admin/settings'); if (!s) return;
       SETTING_KEYS.forEach(k=>sv(`s-${k}`,s[k]??''));
       SETTING_KEYS.forEach(k=>{ const el=document.getElementById(`s-${k}`); if(el) el.addEventListener('input',markDirty); });
-      initAccentField();
       mountListEditors();
       await renderPackList();
       await loadCustomIcons();
       await loadAi();
+      for (const e of extensions) await e.load();
       // Live char counter for collab_intro
       const ciEl = document.getElementById('s-collab_intro');
       const ciCount = document.getElementById('collab-intro-count');
@@ -354,6 +358,7 @@ const Admin = (() => {
         const ok = await saveAi();
         if (!ok) return;
       }
+      for (const e of extensions) { if (!(await e.save())) return; }
       await api('/api/admin/settings',{method:'PUT',body:updates});
       toast('Settings saved!'); markClean();
       updateSaveBar('Saved just now');
@@ -361,7 +366,6 @@ const Admin = (() => {
     } catch (err) {
       // The server names each setting it did not accept. Show every message next to its field.
       if (err.fields) Object.entries(err.fields).forEach(([k, m]) => showFieldError(k, m));
-      else showFieldError('accent_color', err.message);
       toast(err.message, false);
     } finally {
       if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save Settings'; }
@@ -376,20 +380,6 @@ const Admin = (() => {
     await loadSettings();
     markClean();
     toast('Changes discarded');
-  }
-
-  // ─── Accent colour field ───────────────────────────────────────────────────
-  function initAccentField() {
-    const input = document.getElementById('s-accent_color');
-    const picker = document.getElementById('accent-preview');
-    if (!input || !picker || input.dataset.bound) return;
-    input.dataset.bound = '1';
-    const valid = v => /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(v.trim());
-    const expand = v => { v = v.trim(); return v.length === 4 ? '#' + v.slice(1).split('').map(c=>c+c).join('') : v; };
-    const sync = () => { if (valid(input.value)) picker.value = expand(input.value).toLowerCase(); };
-    sync();
-    input.addEventListener('input', () => { sync(); showFieldError('accent_color', valid(input.value) || !input.value ? '' : 'Use a hex colour such as #0b7285.'); });
-    picker.addEventListener('input', () => { input.value = picker.value; markDirty(); showFieldError('accent_color',''); });
   }
 
   // ─── AI Chat settings ──────────────────────────────────────────────────────
@@ -816,5 +806,5 @@ const Admin = (() => {
   initIcons();
 
 
-  return { login, logout, goTo, saveProfile, loadProfile, openRepoModal, saveRepo, deleteRepo, openToolModal, saveTool, deleteTool, openTemplateModal, saveTemplate, deleteTemplate, loadTemplates, saveSettings, discardSettings, loadSettings, loadCollabs, markCollabRead, deleteCollab, loadSuggestions, markSuggestRead, deleteSuggest, closeModal, switchTab, openSidebar, closeSidebar };
+  return { ext, login, logout, goTo, saveProfile, loadProfile, openRepoModal, saveRepo, deleteRepo, openToolModal, saveTool, deleteTool, openTemplateModal, saveTemplate, deleteTemplate, loadTemplates, saveSettings, discardSettings, loadSettings, loadCollabs, markCollabRead, deleteCollab, loadSuggestions, markSuggestRead, deleteSuggest, closeModal, switchTab, openSidebar, closeSidebar };
 })();

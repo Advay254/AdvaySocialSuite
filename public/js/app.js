@@ -1,19 +1,12 @@
-/* AdvaySocialSuite 1.0.1 SPA core: routing, data cache, floating navbar, drawer, footer. */
+/* AdvaySocialSuite 1.2.0 core: data, History API router with page transitions, titles, boot. */
 const App = (() => {
-
-  let currentPage = null;
-  let firstRender = true;
 
   // ─── API and shared data ─────────────────────────────────────────────────────
   async function api(path, opts = {}) {
-    const res = await fetch(path, {
-      headers: { 'Content-Type': 'application/json', ...opts.headers },
-      ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
+    const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...opts.headers }, ...opts, body: opts.body ? JSON.stringify(opts.body) : undefined });
     let data = null;
     try { data = await res.json(); } catch { data = null; }
     if (!res.ok) {
-      // The server always answers with { error, code, fields? }. Its message is written for people.
       const err = new Error((data && data.error) || 'Something went wrong. Please try again.');
       err.status = res.status;
       if (data && data.fields) err.fields = data.fields;
@@ -22,7 +15,6 @@ const App = (() => {
     }
     return data;
   }
-
   const cache = {};
   function once(key, path) {
     if (!cache[key]) cache[key] = api(path).catch(err => { delete cache[key]; throw err; });
@@ -30,217 +22,158 @@ const App = (() => {
   }
   const getSettings = () => once('settings', '/api/settings');
   const getProfile = () => once('profile', '/api/profile');
+  const getTools = () => once('tools', '/api/tools');
+  const getRepos = () => once('repos', '/api/repos');
+  const getTemplates = () => once('templates', '/api/templates');
   async function shared() {
     const [settings, profile] = await Promise.all([getSettings().catch(() => ({})), getProfile().catch(() => ({}))]);
     return { settings, profile };
   }
 
-  // ─── Admin session: drop an expired token on every load ──────────────────────
+  // ─── Pages ───────────────────────────────────────────────────────────────────
+  const DEFS = [
+    { id: 'home', path: '/', label: 'nav_home', page: () => HomePage },
+    { id: 'about', path: '/about', label: 'nav_about', page: () => AboutPage, long: true },
+    { id: 'repos', path: '/repos', label: 'nav_repos', page: () => ReposPage },
+    { id: 'tools', path: '/tools', label: 'nav_tools', page: () => ToolsPage },
+    { id: 'templates', path: '/templates', label: 'templates_label', page: () => TemplatesPage },
+    { id: 'collab', path: '/collab', label: 'nav_collab', page: () => CollabPage },
+    { id: 'faq', path: '/faq', label: 'nav_faq', page: () => FaqPage, long: true },
+  ];
+  let S = {};
+  const faqCount = () => UI.parseJSON(S.faq_items, []).filter(i => i && i.on !== false && i.q && i.a).length;
+  function visible(d) { return d.id === 'templates' ? S.templates_visible !== '0' : d.id === 'faq' ? faqCount() > 0 : true; }
+  function navPages() { return DEFS.filter(visible).map(d => ({ id: d.id, path: d.path, label: UI.stripEmoji(S[d.label] || '') })).filter(p => p.label); }
+  function defFor(pathname) {
+    let p = String(pathname || '/').replace(/\/{2,}/g, '/'); if (p.length > 1) p = p.replace(/\/+$/, '');
+    return DEFS.find(d => d.path === p) || null;
+  }
+
+  const reduced = () => UI.reduced();
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+  let current = null, idx = 0, first = true, token = 0;
+  const root = document.documentElement;
+
+  // ─── Titles and descriptions, from settings ──────────────────────────────────
+  function applyMeta(def, profile) {
+    const site = UI.stripEmoji(S.site_name || ''), label = def ? UI.stripEmoji(S[def.label] || '') : '';
+    const descs = { home: S.meta_description, about: (profile && profile.bio) || S.meta_description, repos: S.repos_subtitle, tools: S.tools_subtitle, templates: S.templates_subtitle, collab: S.collab_subtitle || S.collab_intro, faq: S.faq_subtitle };
+    document.title = !def ? (site ? `Page not found | ${site}` : 'Page not found') : def.id === 'home' || !label ? (site || document.title) : (site ? `${label} | ${site}` : label);
+    let d = UI.stripEmoji((def && descs[def.id]) || S.meta_description || '').replace(/\s+/g, ' ');
+    if (d.length > 160) d = d.slice(0, 157).replace(/\s+\S*$/, '') + '...';
+    const meta = document.querySelector('meta[name="description"]'); if (meta) meta.setAttribute('content', d);
+  }
+  function track(page) { try { fetch('/api/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page }) }); } catch { /* analytics are optional */ } }
+
+  // ─── Rendering with a short direction aware transition ───────────────────────
+  async function render(dir, restoreY) {
+    const t = ++token;
+    const def = defFor(location.pathname);
+    const gone = def && !visible(def);
+    const page = def && !gone ? def.page() : null;
+    const name = page ? def.id : 'notfound';
+    const app = document.getElementById('app');
+    const same = current === name;
+    current = name;
+
+    if (!first && !reduced()) {
+      app.style.setProperty('--lx', dir >= 0 ? '-10px' : '10px');
+      app.classList.add('is-leaving');
+      await sleep(110);
+      if (t !== token) return;
+    }
+    app.classList.remove('is-leaving', 'is-entering-fwd', 'is-entering-back');
+    root.setAttribute('data-page', name);
+    Chrome.setProgress(!!(def && def.long));
+    if (page) {
+      app.innerHTML = `<div class="page" data-view="${name}">${page.render()}</div>`;
+    } else {
+      app.innerHTML = `<div class="page" data-view="notfound"><div class="container"><div class="page-head"><p class="eyebrow">( 404 )</p><h1>${UI.stop(UI.S.notFound)}</h1><p class="lead">${UI.text(UI.S.notFoundText)}</p></div>${UI.btn({ label: UI.S.home, href: '/', icon: 'arrow-right' })}</div></div>`;
+    }
+    if (!first && !reduced()) { app.classList.add(dir >= 0 ? 'is-entering-fwd' : 'is-entering-back'); app.addEventListener('animationend', () => app.classList.remove('is-entering-fwd', 'is-entering-back'), { once: true }); }
+    if (!(restoreY > 0)) window.scrollTo(0, 0);
+    UI.reveal(app);
+    document.dispatchEvent(new CustomEvent('app:route', { detail: { page: name } }));
+    applyMeta(page ? def : null, null);
+    if (!first || same) app.focus({ preventScroll: true });
+    first = false;
+
+    if (page && page.init) { try { await page.init(); } catch (e) { console.error('Page init error:', e); } }
+    if (t !== token) return;
+    if (page && def.id === 'about') { const { profile } = await shared(); applyMeta(def, profile); }
+    UI.reveal(app); UI.countUp(app); Chrome.fillTyped();
+    if (restoreY > 0) window.scrollTo(0, restoreY);
+    if (page) track(name);
+  }
+
+  // ─── Navigation: clean paths with the History API ────────────────────────────
+  function saveScroll() { try { history.replaceState({ ...(history.state || {}), i: idx, y: window.scrollY }, ''); } catch { /* not allowed */ } }
+  function go(url, opts = {}) {
+    const u = new URL(url, location.origin);
+    if (u.origin !== location.origin) { location.href = u.href; return; }
+    if (u.pathname === location.pathname && u.search === location.search && !opts.force) { if (u.hash) location.hash = u.hash; else window.scrollTo({ top: 0, behavior: reduced() ? 'auto' : 'smooth' }); return; }
+    saveScroll();
+    if (opts.replace) history.replaceState({ i: idx }, '', u.pathname + u.search + u.hash);
+    else { idx += 1; history.pushState({ i: idx }, '', u.pathname + u.search + u.hash); }
+    render(1, 0);
+  }
+  window.addEventListener('popstate', () => {
+    // An old style link such as /#/tools is sent to /tools.
+    if (/^#\/[a-z]*$/i.test(location.hash)) { redirectHash(); return; }
+    const st = history.state || {};
+    const n = typeof st.i === 'number' ? st.i : 0;
+    const dir = n >= idx ? 1 : -1;
+    idx = n;
+    render(dir, st.y || 0);
+  });
+  window.addEventListener('pagehide', saveScroll);
+  function redirectHash() {
+    const m = location.hash.match(/^#(\/[a-z]*)$/i);
+    if (m) { history.replaceState({ i: idx }, '', m[1]); render(1, 0); }
+  }
+
+  // Internal links change the page without a reload. Modifier keys and targets keep their normal behaviour.
+  document.addEventListener('click', e => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const retry = e.target.closest('[data-action="retry"]');
+    if (retry) { render(0, 0); return; }
+    const a = e.target.closest('a[href]');
+    if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download')) return;
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('#') && !/^#\/[a-z]*$/i.test(href)) return;
+    let u; try { u = new URL(a.href, location.href); } catch { return; }
+    if (u.origin !== location.origin) return;
+    const hashRoute = u.hash.match(/^#(\/[a-z]*)$/i);
+    const target = hashRoute && u.pathname === '/' ? hashRoute[1] : u.pathname;
+    if (!defFor(target) && /\.[A-Za-z0-9]{1,8}$/.test(target)) return;
+    if (/^\/(api|vendor|css|js|fonts|icons|health)\//.test(target)) return;
+    e.preventDefault();
+    go(target + u.search);
+  });
+
+  // ─── Boot ────────────────────────────────────────────────────────────────────
   function checkAdminToken() {
     try {
-      const token = sessionStorage.getItem('adv_admin_token');
-      if (!token) return;
+      const token = sessionStorage.getItem('adv_admin_token'); if (!token) return;
       const payload = JSON.parse(atob(token.split('.')[1]));
       if (payload.exp && Date.now() / 1000 > payload.exp) sessionStorage.removeItem('adv_admin_token');
     } catch { try { sessionStorage.removeItem('adv_admin_token'); } catch { /* storage blocked */ } }
   }
-
-  // ─── Routes ──────────────────────────────────────────────────────────────────
-  const ROUTES = { '': 'home', '/': 'home', '/about': 'about', '/repos': 'repos', '/tools': 'tools', '/collab': 'collab', '/templates': 'templates' };
-  const PAGES = { home: HomePage, about: AboutPage, repos: ReposPage, tools: ToolsPage, collab: CollabPage, templates: TemplatesPage };
-  const LABEL_KEY = { home: 'nav_home', about: 'nav_about', repos: 'nav_repos', tools: 'nav_tools', templates: 'templates_label', collab: 'nav_collab' };
-
-  function getRoute() { return ROUTES[window.location.hash.replace('#', '') || '/'] || 'home'; }
-  const reducedMotion = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  async function navigate(force = false) {
-    const name = getRoute();
-    if (!force && name === currentPage) return;
-    currentPage = name;
-    const page = PAGES[name];
-    if (!page) return;
-
-    const app = document.getElementById('app');
-    app.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.innerHTML = page.render();
-    app.appendChild(wrap);
-    UI.reveal(wrap);
-
-    updateNav(name);
-    closeDrawer(false);
-    window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
-    if (!firstRender) app.focus({ preventScroll: true });
-    firstRender = false;
-
-    try { if (page.init) await page.init(); } catch (e) { console.error('Page init error:', e); }
-    UI.reveal(wrap);
-    setTitle(name);
-    trackPage(name);
-  }
-
-  async function setTitle(name) {
-    const { settings } = await shared();
-    const site = UI.stripEmoji(settings.site_name || '');
-    const label = UI.stripEmoji(settings[LABEL_KEY[name]] || '');
-    document.title = name === 'home' || !label ? (site || document.title) : (site ? `${label} | ${site}` : label);
-    const meta = document.querySelector('meta[name="description"]');
-    if (meta && settings.meta_description) meta.setAttribute('content', UI.stripEmoji(settings.meta_description));
-  }
-
-  function updateNav(name) {
-    document.querySelectorAll('.nav__link, .drawer__link').forEach(el => {
-      if (el.dataset.page === name) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
-    });
-  }
-
-  async function trackPage(page) {
-    try { await fetch('/api/pageview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page }) }); } catch { /* analytics are optional */ }
-  }
-
-  // ─── Navbar, drawer, footer ──────────────────────────────────────────────────
-  let drawerReturnFocus = null;
-
-  function drawerFocusables() {
-    return Array.from(document.querySelectorAll('#drawer a[href], #drawer button, #drawer [tabindex]:not([tabindex="-1"])')).filter(el => !el.classList.contains('hidden') && el.offsetParent !== null);
-  }
-  function openDrawer() {
-    const d = document.getElementById('drawer');
-    if (!d || d.classList.contains('is-open')) return;
-    drawerReturnFocus = document.activeElement;
-    d.classList.add('is-open');
-    document.getElementById('drawer-backdrop').classList.add('is-open');
-    document.getElementById('menu-btn').setAttribute('aria-expanded', 'true');
-    document.documentElement.classList.add('scroll-lock');
-    setTimeout(() => document.getElementById('drawer-close')?.focus(), 30);
-  }
-  function closeDrawer(restoreFocus = true) {
-    const d = document.getElementById('drawer');
-    if (!d || !d.classList.contains('is-open')) return;
-    d.classList.remove('is-open');
-    document.getElementById('drawer-backdrop').classList.remove('is-open');
-    document.getElementById('menu-btn').setAttribute('aria-expanded', 'false');
-    document.documentElement.classList.remove('scroll-lock');
-    if (restoreFocus) (drawerReturnFocus || document.getElementById('menu-btn'))?.focus();
-  }
-
-  function initNavbar() {
-    document.getElementById('menu-btn').innerHTML = UI.icon('menu', 22);
-    document.getElementById('drawer-close').innerHTML = UI.icon('x', 22);
-
-    document.getElementById('menu-btn').addEventListener('click', () => {
-      document.getElementById('drawer').classList.contains('is-open') ? closeDrawer() : openDrawer();
-    });
-    document.getElementById('drawer-close').addEventListener('click', () => closeDrawer());
-    document.getElementById('drawer-backdrop').addEventListener('click', () => closeDrawer());
-    document.getElementById('drawer-links').addEventListener('click', e => { if (e.target.closest('a')) closeDrawer(false); });
-
-    document.addEventListener('keydown', e => {
-      const d = document.getElementById('drawer');
-      if (!d.classList.contains('is-open')) return;
-      if (e.key === 'Escape') { e.preventDefault(); closeDrawer(); return; }
-      if (e.key === 'Tab') {
-        const f = drawerFocusables();
-        if (!f.length) return;
-        const first = f[0], last = f[f.length - 1];
-        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-      }
-    });
-    window.matchMedia('(min-width: 900px)').addEventListener?.('change', ev => { if (ev.matches) closeDrawer(false); });
-
-    document.getElementById('skip-link').addEventListener('click', e => {
-      e.preventDefault();
-      document.getElementById('app').focus();
-    });
-
-    document.addEventListener('click', e => {
-      if (e.target.closest('[data-action="retry"]')) navigate(true);
-    });
-  }
-
-  // A call to action link may be a route inside the site (#/collab) or a full https address.
-  function resolveLink(value) {
-    const v = String(value || '').trim();
-    if (/^#\/[a-z]*$/i.test(v)) return { href: v, external: false };
-    const u = UI.safeUrl(v);
-    return u ? { href: u, external: true } : null;
-  }
-
-  async function renderChrome() {
-    const { settings, profile } = await shared();
-
-    if (settings.accent_color) UI.applyAccent(settings.accent_color);
-
-    // Brand and labels
-    const display = UI.stripEmoji(profile.name || settings.site_name || '');
-    document.getElementById('brand').textContent = display;
-    document.getElementById('drawer-brand').textContent = display;
-    document.querySelectorAll('[data-label]').forEach(el => { el.textContent = UI.stripEmoji(settings[el.dataset.label] || ''); });
-
-    // One pill button on the right of the bar. Label and link come from settings.
-    const cta = resolveLink(settings.nav_cta_link);
-    const ctaLabel = settings.nav_cta_label;
-    const ctaHtml = cta && ctaLabel ? UI.btn({ label: ctaLabel, href: cta.href, external: cta.external, size: 'sm' }) : '';
-    document.getElementById('nav-cta').innerHTML = ctaHtml;
-
-    // Drawer footer: the same button plus the support link when the profile has one
-    const support = UI.safeUrl(profile.bmc_url);
-    const supportLabel = settings.support_label;
-    document.getElementById('drawer-foot').innerHTML =
-      (cta && ctaLabel ? UI.btn({ label: ctaLabel, href: cta.href, external: cta.external, block: true }) : '') +
-      (support && supportLabel ? UI.btn({ label: supportLabel, href: support, external: true, variant: 'secondary', block: true, icon: 'arrow-up-right' }) : '');
-
-    renderFooter(settings, profile, support);
-    updateNav(currentPage);
-  }
-
-  function renderFooter(settings, profile, support) {
-    const foot = document.getElementById('site-footer');
-    const site = UI.text(profile.name || settings.site_name || '');
-    const links = [['#/', 'nav_home'], ['#/about', 'nav_about'], ['#/repos', 'nav_repos'], ['#/tools', 'nav_tools'], ['#/templates', 'templates_label'], ['#/collab', 'nav_collab']]
-      .map(([href, key]) => settings[key] ? `<li><a href="${href}">${UI.text(settings[key])}</a></li>` : '').join('');
-    const socials = [['github_url', 'GitHub'], ['linkedin_url', 'LinkedIn'], ['twitter_url', 'X'], ['youtube_url', 'YouTube'], ['discord_url', 'Discord'], ['tiktok_url', 'TikTok']]
-      .map(([k, name]) => { const u = UI.safeUrl(profile[k]); return u ? `<li><a href="${UI.esc(u)}" target="_blank" rel="noopener noreferrer">${name}</a></li>` : ''; }).join('');
-    const supportCol = support && settings.support_label ? `
-      <div>
-        <h2 class="label footer__title">${UI.text(settings.footer_support_heading)}</h2>
-        <ul class="footer__list"><li><a href="${UI.esc(support)}" target="_blank" rel="noopener noreferrer">${UI.text(settings.support_label)}</a></li></ul>
-      </div>` : '<div></div>';
-
-    foot.innerHTML = `
-      <div class="container">
-        <div class="footer__grid">
-          <div>
-            <div class="footer__brand">${site}</div>
-            ${settings.site_tagline ? `<p class="footer__about">${UI.text(settings.site_tagline)}</p>` : ''}
-          </div>
-          <div>
-            <h2 class="label footer__title">${UI.text(settings.footer_nav_heading)}</h2>
-            <ul class="footer__list">${links}</ul>
-          </div>
-          <div>
-            ${socials ? `<h2 class="label footer__title">${UI.text(settings.footer_connect_heading)}</h2><ul class="footer__list">${socials}</ul>` : ''}
-          </div>
-          ${supportCol}
-        </div>
-        <div class="footer__base">\u00A9 ${new Date().getFullYear()} ${site}</div>
-      </div>`;
-  }
-
-  // ─── Boot ────────────────────────────────────────────────────────────────────
   async function init() {
     checkAdminToken();
-    // The icon style is a site setting, so it is loaded before the first page is drawn.
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    const themeReady = Theme.init();
     const { settings } = await shared();
-    await Icons.load(settings.icon_pack);
-    initNavbar();
-    renderChrome();
+    S = settings;
+    await Icons.load(S.icon_pack);
+    idx = (history.state && typeof history.state.i === 'number') ? history.state.i : 0;
+    history.replaceState({ ...(history.state || {}), i: idx }, '');
+    if (/^#\/[a-z]*$/i.test(location.hash)) { const m = location.hash.match(/^#(\/[a-z]*)$/i); history.replaceState({ i: idx }, '', m[1]); }
+    await themeReady;
+    await Chrome.init();
     ChatWidget.init();
-    navigate(true);
-    window.addEventListener('hashchange', () => navigate());
+    await render(1, 0);
   }
-
   document.addEventListener('DOMContentLoaded', init);
-  return { api, navigate, getSettings, getProfile, shared, showToast: (m, t) => UI.toast(m, t === 'error' ? 'error' : undefined) };
+  return { api, go, getSettings, getProfile, getTools, getRepos, getTemplates, shared, navPages, showToast: (m, t) => UI.toast(m, t === 'error' ? 'error' : undefined) };
 })();
