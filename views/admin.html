@@ -423,6 +423,7 @@
         <div class="a-card-body">
           <div class="tab-bar" style="flex-wrap:wrap;gap:2px 0;">
             <button class="tab-btn active" onclick="Admin.switchTab('s-general',this)"><span class="ico" data-ico="settings"></span> General</button>
+            <button class="tab-btn" onclick="Admin.switchTab('s-themes',this)"><span class="ico" data-ico="palette"></span> Themes</button>
             <button class="tab-btn" onclick="Admin.switchTab('s-homepage',this)"><span class="ico" data-ico="home"></span> Home Page</button>
             <button class="tab-btn" onclick="Admin.switchTab('s-collab',this)"><span class="ico" data-ico="briefcase"></span> Hire &amp; Collab</button>
             <button class="tab-btn" onclick="Admin.switchTab('s-pages',this)"><span class="ico" data-ico="file"></span> Other Pages</button>
@@ -441,15 +442,7 @@
               <div class="a-group"><label class="a-label">Repo Count Stat <span style="font-size:10px;opacity:.5">(shown on homepage)</span></label><input type="number" id="s-repo_count" class="a-input" placeholder="26"></div>
               <div class="a-group"><label class="a-label">Years Exp Stat <span style="font-size:10px;opacity:.5">(shown on homepage)</span></label><input type="number" id="s-years_exp" class="a-input" placeholder="3"></div>
             </div>
-            <div class="a-group"><label class="a-label">Hero Cylinder Labels <span style="font-size:10px;opacity:.5">(comma-separated words in the 3D spinning animation on homepage)</span></label><input id="s-cylinder_labels" class="a-input" placeholder="N8N WORKFLOWS,BAILEYS BOTS,REST APIs,..."></div>
-            <div class="a-group"><label class="a-label">Accent Colour <span style="font-size:10px;opacity:.5">(the main colour of buttons and highlights on your public site)</span></label>
-              <div style="display:flex;gap:10px;align-items:center;">
-                <input id="s-accent_color" class="a-input" placeholder="#0b7285" maxlength="7" autocomplete="off" spellcheck="false">
-                <input type="color" id="accent-preview" aria-label="Pick a colour" style="width:44px;height:40px;padding:2px;border-radius:8px;border:1px solid var(--border);background:transparent;flex-shrink:0;cursor:pointer;">
-              </div>
-              <div class="ai-err" data-for="accent_color" style="font-size:11px;color:#f87171;margin-top:4px;"></div>
-              <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;">Type a hex colour such as #0b7285 or click the swatch to pick one. Text colour on buttons and the light and dark versions are adjusted automatically so everything stays readable.</p>
-            </div>
+            <div class="a-group"><label class="a-label" for="s-contact_email">Public email address <span style="font-size:10px;opacity:.5">(optional, shown in the menu and footer, and in the search bar as "Copy email address")</span></label><input id="s-contact_email" type="email" class="a-input" placeholder="hello@example.com" maxlength="254" autocomplete="off"><div class="ai-err" data-for="contact_email" style="font-size:11px;color:#f87171;margin-top:4px;"></div></div>
 
             <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Icon style</div>
             <p style="font-size:11px;color:#7a8499;margin-top:6px;line-height:1.6;margin-top:0;margin-bottom:10px;">Every icon on your public site uses one style. Pick the one that suits your brand. The change goes live when you press Save Settings.</p>
@@ -472,9 +465,24 @@
           </div>
 
           <!-- HOME PAGE -->
+          <div id="tab-s-themes" class="tab-content">
+            <div id="themes-host"><p class="hint-s">Loading themes...</p></div>
+          </div>
+
           <div id="tab-s-homepage" class="tab-content">
             <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Controls the text content on your main homepage. Your name and tagline are set in <strong style="color:#e8edf8;">Profile</strong>.</p>
             <div class="a-group"><label class="a-label">Hero Sub-headline <span style="font-size:10px;opacity:.5">(paragraph below your name)</span></label><textarea id="s-home_subheadline" class="a-textarea" rows="2" placeholder="Automation engineer. I ship practical web tools..."></textarea></div>
+            <div style="margin:6px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Sections on the home page</div>
+            <p class="hint-s" style="margin-bottom:8px">Switch sections on or off and change their order. The introduction is always shown.</p>
+            <div id="he-sections" class="he-list"></div><textarea id="s-home_sections" style="display:none" aria-hidden="true" tabindex="-1"></textarea>
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Rotating words under the headline</div>
+            <div id="he-words"></div><textarea id="s-hero_words" style="display:none" aria-hidden="true" tabindex="-1"></textarea>
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Typing phrases in the call to action</div>
+            <div id="he-phrases"></div><textarea id="s-cta_phrases" style="display:none" aria-hidden="true" tabindex="-1"></textarea>
+            <div style="margin:18px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Questions and answers (FAQ)</div>
+            <div id="he-faq"></div><textarea id="s-faq_items" style="display:none" aria-hidden="true" tabindex="-1"></textarea>
+            <div class="a-group" style="margin-top:12px"><label class="a-label" for="s-nav_faq">FAQ menu label</label><input id="s-nav_faq" class="a-input" maxlength="40" placeholder="FAQ"></div>
+            <div class="a-group"><label class="a-label" for="s-faq_subtitle">FAQ page intro</label><input id="s-faq_subtitle" class="a-input" maxlength="300" placeholder="Straight answers to the questions people ask before they get in touch."></div>
             <div style="margin:14px 0 8px;font-size:11px;font-weight:700;color:#e8edf8;letter-spacing:.5px;">Profile Card Bullets</div>
             <p style="font-size:11px;color:#7a8499;margin-bottom:10px;">3 bullet points shown on your profile card on the homepage.</p>
             <div class="a-group"><label class="a-label">Bullet 1</label><input id="s-timeline_1" class="a-input" placeholder="Automation & n8n Workflows"></div>
@@ -512,6 +520,7 @@
           <!-- OTHER PAGES -->
           <div id="tab-s-pages" class="tab-content">
             <p style="font-size:11px;color:#7a8499;margin-bottom:14px;line-height:1.6;">Subtitle text shown under the heading on the Tools and Templates pages.</p>
+            <div class="a-group"><label class="a-label" for="s-repos_subtitle">Repositories Page Subtitle</label><input id="s-repos_subtitle" class="a-input" maxlength="300" placeholder="Public repositories and open source projects."></div>
             <div class="a-group"><label class="a-label">Tools Page Subtitle</label><input id="s-tools_subtitle" class="a-input" placeholder="Fully deployed, free-to-use tools. Click any card to visit."></div>
             <div class="a-group"><label class="a-label">Templates Page Subtitle</label><input id="s-templates_subtitle" class="a-input" placeholder="Ready-to-import workflow templates. Click JSON to download."></div>
           </div>
@@ -776,5 +785,8 @@
 <script src="/js/icons.js"></script>
 <script src="/js/icon-picker.js"></script>
 <script src="/js/admin.js"></script>
+  <script src="/js/theme-core.js"></script>
+  <script src="/js/admin-themes.js"></script>
+  <script src="/js/admin-home.js"></script>
 </body>
 </html>
