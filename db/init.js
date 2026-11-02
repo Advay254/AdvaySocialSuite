@@ -1,6 +1,8 @@
 const { Pool } = require('pg');
 const { DEFAULTS: AI_DEFAULTS } = require('../lib/aiDefaults');
 const { migrateEmoji } = require('./migrateEmoji');
+const themes = require('../lib/themes');
+const { HOME_SECTIONS } = require('../lib/settingsPolicy');
 
 let pool;
 function getPool() {
@@ -123,7 +125,6 @@ const SEED_SETTINGS = [
   ['templates_label', 'n8n Templates'],
   ['templates_visible', '1'],
   ['cylinder_labels', 'BAILEYS BOTS,REST APIs,N8N WORKFLOWS,SUPABASE / POSTGRES,RENDER DEPLOYMENTS,WEBHOOK SYSTEMS,PWA TOOLS,ADSTERRA MONETIZATION'],
-  ['theme_interval', '6'],
   ['collab_intro', 'I build automation systems, bots, and web tools. Remote only, global clients welcome. Most projects are completed within 1 to 2 weeks. I keep things practical, free-tier first, and built to last.'],
   ['collab_subtitle', 'Got a project idea? Let\'s talk.'],
   ['collab_qi_1', 'Usually responds within 24 hours'],
@@ -183,7 +184,7 @@ const SEED_SETTINGS_V1 = [
   ['icon_pack', 'lucide'],
   ['home_stat_years_label', 'Years building'],
   ['nav_cta_label', 'Work with me'],
-  ['nav_cta_link', '#/collab'],
+  ['nav_cta_link', '/collab'],
   ['home_about_kicker', 'About me'],
   ['home_about_button', 'Read my story'],
   ['tool_open_label', 'Open'],
@@ -194,6 +195,29 @@ const SEED_SETTINGS_V1 = [
   ['status_down_label', 'Down'],
   ...Object.entries(AI_DEFAULTS).filter(([k]) => k !== 'ai_system_prompt'),
 ];
+
+
+// Added in 1.2.0. Every value here is only ever inserted when the key does not exist yet.
+const SEED_SETTINGS_V12 = [
+  ['nav_faq', 'FAQ'],
+  ['faq_subtitle', 'Straight answers to the questions people ask before they get in touch.'],
+  ['repos_subtitle', 'Public repositories and open source projects. Open any title to view it on GitHub.'],
+  ['contact_email', ''],
+  ['cta_phrases', JSON.stringify(['Need a website?', 'Need an automation?'])],
+  ['home_sections', JSON.stringify(HOME_SECTIONS.map(id => ({ id, on: true })))],
+  ['faq_items', '[]'],
+  ...Object.entries(themes.DEFAULTS),
+];
+
+// Words that stay in capitals, written the way they are normally written.
+const WORD_FORMS = { API: 'API', APIS: 'APIs', REST: 'REST', N8N: 'n8n', PWA: 'PWA', AI: 'AI', SQL: 'SQL', URL: 'URL', '/': '/' };
+function prettyWords(csv) {
+  return String(csv || '').split(',').map(label => label.trim().split(/\s+/).map(w => {
+    const up = w.toUpperCase();
+    if (WORD_FORMS[up]) return WORD_FORMS[up];
+    return w === up ? w.charAt(0) + w.slice(1).toLowerCase() : w;
+  }).join(' ')).filter(Boolean);
+}
 
 const SEED_PROFILE = {
   name: 'Advay', tagline: 'Builder of Useful Things',
@@ -255,6 +279,17 @@ async function initDB() {
       await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [k, v]);
     }
 
+    // 1.2.0 settings. Existing values are never overwritten.
+    for (const [k, v] of SEED_SETTINGS_V12) {
+      await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', [k, v]);
+    }
+    // The rotating words start from the words of the old spinning cylinder.
+    const cyl = await db.query("SELECT value FROM site_settings WHERE key='cylinder_labels'");
+    await db.query('INSERT INTO site_settings (key,value) VALUES ($1,$2) ON CONFLICT (key) DO NOTHING', ['hero_words', JSON.stringify(prettyWords(cyl.rows.length ? cyl.rows[0].value : ''))]);
+    // The accent colour saved in 1.0.1 becomes a custom theme, once.
+    const moved = await themes.migrateAccent(db);
+    if (moved) console.log('[DB] Accent colour moved to the custom theme "My colours".');
+
     const rc = await db.query('SELECT COUNT(*) FROM repos');
     if (parseInt(rc.rows[0].count) === 0) {
       for (const r of SEED_REPOS)
@@ -277,4 +312,4 @@ async function initDB() {
   }
 }
 
-module.exports = { getPool, initDB };
+module.exports = { getPool, initDB, prettyWords };
