@@ -75,8 +75,8 @@ async function get(path, opts = {}) {
   console.log('\nSpeed and caching');
   const gz = await fetch(base + '/css/style.css', { headers: { 'Accept-Encoding': 'gzip, br' } });
   check(/gzip|br/.test(gz.headers.get('content-encoding') || ''), 'CSS is compressed', 'CSS is not compressed');
-  const font = await get('/fonts/satoshi-400.woff2');
-  check(/immutable/.test(font.h('cache-control') || ''), 'fonts are cached for a long time', `font cache header is: ${font.h('cache-control')}`);
+  const font = await get('/vendor/purify-3.4.0.min.js');
+  check(/immutable/.test(font.h('cache-control') || ''), 'vendored libraries are cached for a long time', `cache header is: ${font.h('cache-control')}`);
 
   if (adminPath) {
     console.log('\nAdmin page');
